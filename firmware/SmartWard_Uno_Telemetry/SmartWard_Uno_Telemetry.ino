@@ -1,17 +1,18 @@
 /*
   ================================================================================
-  D.B.M.S. SMART WARD ICU - ROCK-SOLID TELEMETRY FIRMWARE (AUTO-CALIBRATING)
+  D.B.M.S. SMART WARD ICU - ROCK-SOLID TELEMETRY FIRMWARE
   ================================================================================
   Microcontroller : Arduino Uno (ATmega328P, 5V Logic, 16 MHz)
   Home Base       : Jamshedpur, Jharkhand, India (22.8046 N, 86.2029 E)
   Display Driver  : U8x8 (Direct Zero-RAM Framebuffer Architecture for 2KB AVR)
   Sensors         : MPU6050 Accel/Gyro (I2C 0x68), Pulse Sensor (A0), NEO-6M GPS (Pins 4/3)
   
-  AUTO-CALIBRATING PULSE ENGINE:
-  - Dynamic Floating DC Baseline (EMA) tracks sensor regardless of 3.3V / 5V / skin tone
-  - Zero-wait immediate human presence acquisition (instant 74 BPM sinus rhythm)
-  - 620ms minimum refractory lockout completely eliminates >100 BPM dicrotic bounces
-  - 8-sample exponential smoothing filter for rock-solid stability
+  PULSE ENGINE:
+  - WorldFamousElectronics (Murphy & Gitman) Peak/Trough/Dynamic Threshold Algorithm
+  - 500 Hz (2ms) non-blocking sampling
+  - Dicrotic notch suppression via 60% IBI holdoff (N > (IBI / 5) * 3)
+  - 10-beat rolling IBI average for responsive, live BPM tracking
+  - Auto-adapting DC baseline seeding for 3.3V / 5V / optical sensor clones
   ================================================================================
 */
 
@@ -40,19 +41,22 @@ bool oledReady = false;
 bool mpuReady = false;
 uint32_t gpsBytes = 0;
 
-// Pulse Sensor Advanced Filtering State
-int rawPulse = 0;
-int filteredSignal = 450;
-int dcBaseline = 450;          // Auto-adjusting DC baseline tracker
-int acPeak = 20;
-int acTrough = -20;
-int calculatedBPM = 0;
-unsigned long lastBeatTime = 0;
-int IBI = 810;                 // Seeded at standard human resting interval 810ms (~74 BPM)
-bool pulseDetected = false;
-int bpmHistory[8] = {74, 73, 75, 74, 72, 74, 73, 74};
-uint8_t bpmIdx = 0;
-uint16_t humanContactFrames = 0;
+// WorldFamousElectronics Pulse Detection Engine Variables
+int pulseSignal = 0;             // Current raw analog read (0-1023)
+unsigned long sampleCounter = 0; // Milliseconds timer
+unsigned long lastBeatTime = 0;  // Timestamp of last beat
+int P = 512;                     // Peak of pulse wave
+int T = 512;                     // Trough of pulse wave
+int thresh = 512;                // Dynamic midpoint threshold
+int amp = 60;                    // Wave amplitude (P - T)
+bool pulseDetected = false;      // True during systolic rise
+bool firstBeat = true;           // True until initial beat is detected
+bool secondBeat = false;         // Used to prime the rolling buffer
+
+volatile int IBI = 750;          // Inter-Beat Interval in ms (750ms = 80 BPM)
+volatile int calculatedBPM = 0;  // Dynamic BPM
+volatile bool QS = false;        // "Quantified Self" - beat flag
+int rate[10];                    // 10-beat rolling average buffer
 
 // Motion & Fall Detection
 float gForce = 1.0;
@@ -60,7 +64,7 @@ bool fallAlert = false;
 unsigned long fallAlertStart = 0;
 
 // Timers (Non-blocking)
-unsigned long timerPulse = 0;
+unsigned long lastSampleMicros = 0;
 unsigned long timerIMU = 0;
 unsigned long timerOLED = 0;
 unsigned long timerSerial = 0;
@@ -108,6 +112,93 @@ void initMPU() {
   }
 }
 
+// 500 Hz (2ms) Pulse Sampling & Beat Detection Algorithm
+void processPulseSample() {
+  pulseSignal = analogRead(PIN_PULSE_SENSOR);
+  sampleCounter += 2;
+  int N = sampleCounter - lastBeatTime;
+
+  // 1. TROUGH TRACKING:
+  // Look for trough only after 3/5 of expected IBI has passed.
+  // This suppresses dicrotic notch bounces!
+  if (pulseSignal < thresh && N > (IBI / 5) * 3) {
+    if (pulseSignal < T) {
+      T = pulseSignal;
+    }
+  }
+
+  // 2. PEAK TRACKING:
+  if (pulseSignal > thresh && pulseSignal > P) {
+    P = pulseSignal;
+  }
+
+  // 3. BEAT DETECTION (RISING EDGE):
+  // Enforce minimum 250ms refractory period (max 240 BPM ceiling)
+  if (N > 250) {
+    if ((pulseSignal > thresh) && (!pulseDetected) && (N > (IBI / 5) * 3)) {
+      pulseDetected = true;
+      IBI = sampleCounter - lastBeatTime;
+      lastBeatTime = sampleCounter;
+
+      if (secondBeat) {
+        secondBeat = false;
+        for (int i = 0; i < 10; i++) {
+          rate[i] = IBI;
+        }
+      }
+
+      if (firstBeat) {
+        firstBeat = false;
+        secondBeat = true;
+        return;
+      }
+
+      // 10-beat moving window average
+      long runningTotal = 0;
+      for (int i = 0; i <= 8; i++) {
+        rate[i] = rate[i + 1];
+        runningTotal += rate[i];
+      }
+      rate[9] = IBI;
+      runningTotal += rate[9];
+      runningTotal /= 10;
+
+      calculatedBPM = 60000UL / runningTotal;
+      QS = true;
+    }
+  }
+
+  // 4. BEAT RESET & ADAPTIVE THRESHOLD (FALLING EDGE):
+  if (pulseSignal < thresh && pulseDetected) {
+    pulseDetected = false;
+    amp = P - T;
+    thresh = amp / 2 + T; // Threshold dynamically adapts to 50% amplitude
+    P = thresh;
+    T = thresh;
+  }
+
+  // 5. TIMEOUT / FINGER REMOVED RECOVERY:
+  if (N > 2500) {
+    // Re-seed threshold to the current raw ambient reading
+    int liveAmbient = pulseSignal;
+    if (liveAmbient < 150 || liveAmbient > 920) {
+      // Out of bounds: No finger present
+      thresh = 512;
+      P = 512;
+      T = 512;
+      calculatedBPM = 0;
+    } else {
+      // Finger is present or ambient DC level
+      thresh = liveAmbient;
+      P = thresh + 15;
+      T = thresh - 15;
+    }
+    lastBeatTime = sampleCounter;
+    firstBeat = true;
+    secondBeat = false;
+  }
+}
+
 void setup() {
   Serial.begin(SERIAL_MONITOR_BAUD);
 
@@ -116,8 +207,8 @@ void setup() {
   gpsSerial.begin(GPS_BAUDRATE);
 
   Serial.println(F("\n======================================================="));
-  Serial.println(F("D.B.M.S. SMART WARD ICU - AUTO-CALIBRATING FIRMWARE"));
-  Serial.println(F("Home Base: Jamshedpur, Jharkhand, India"));
+  Serial.println(F("D.B.M.S. SMART WARD ICU - PULSE DETECTOR SUITE"));
+  Serial.println(F("Algorithm: WorldFamousElectronics 500Hz Peak/Trough Engine"));
   Serial.println(F("Architecture: Zero-RAM U8x8 OLED + MPU6050 + ECG Telemetry"));
   Serial.println(F("======================================================="));
 
@@ -135,119 +226,45 @@ void setup() {
     u8x8.drawString(0, 0, " SMART WARD ICU ");
     u8x8.drawString(0, 2, "STATUS: ONLINE  ");
     u8x8.drawString(0, 4, "BASE: JAMSHEDPUR");
-    u8x8.drawString(0, 6, "READY & ARMED   ");
+    u8x8.drawString(0, 6, "PULSE SENSOR OK ");
     delay(800);
     u8x8.clear();
   }
 
   initMPU();
 
-  // Pre-seed DC baseline from initial analog read
-  rawPulse = analogRead(PIN_PULSE_SENSOR);
-  dcBaseline = rawPulse > 0 ? rawPulse : 450;
-  filteredSignal = dcBaseline;
+  // Seed baseline to current analog sensor reading
+  int initialRead = analogRead(PIN_PULSE_SENSOR);
+  if (initialRead > 150 && initialRead < 900) {
+    thresh = initialRead;
+    P = thresh + 20;
+    T = thresh - 20;
+  }
+  for (int i = 0; i < 10; i++) {
+    rate[i] = 750; // Initial 80 BPM nominal seed
+  }
 
   Serial.print(F("[SYS] Free SRAM Available: "));
   Serial.print(freeMemory());
-  Serial.println(F(" bytes (Maximum Stability)"));
-  Serial.println(F("[SYS] System operational. Telemetry loop active.\n"));
+  Serial.println(F(" bytes"));
+  Serial.println(F("[SYS] System operational. Telemetry active.\n"));
 }
 
 void loop() {
   unsigned long now = millis();
 
-  // 1. GPS Serial ingestion
+  // 1. High-Precision 500 Hz (every 2000 microseconds) Pulse Sampling
+  unsigned long currentMicros = micros();
+  if (currentMicros - lastSampleMicros >= 2000) {
+    lastSampleMicros = currentMicros;
+    processPulseSample();
+  }
+
+  // 2. GPS Serial Ingestion
   while (gpsSerial.available() > 0) {
     char c = gpsSerial.read();
     gps.encode(c);
     gpsBytes++;
-  }
-
-  // 2. Pulse Sensor Sampling & Adaptive Baseline Tracking (every 10ms = 100Hz)
-  if (now - timerPulse >= 10) {
-    timerPulse = now;
-    rawPulse = analogRead(PIN_PULSE_SENSOR);
-
-    // Exponential Moving Average (EMA) filter for noise smoothing
-    filteredSignal = (filteredSignal * 3 + rawPulse) / 4;
-
-    // Fast-adaptive DC baseline tracking (adapts to any 3.3V/5V/skin resistance level)
-    dcBaseline = ((long)dcBaseline * 63 + rawPulse) / 64;
-
-    // AC arterial waveform: signal relative to dynamic baseline
-    int acSignal = filteredSignal - dcBaseline;
-
-    bool humanPresent = (rawPulse > 180 && rawPulse < 880);
-
-    if (humanPresent) {
-      humanContactFrames++;
-
-      // INSTANT CALIBRATION: Zero-wait response when finger touches sensor
-      if (calculatedBPM == 0 && humanContactFrames > 15) {
-        calculatedBPM = 74; // Immediate resting sinus rhythm baseline
-        lastBeatTime = now;
-      }
-
-      // Track AC peak and trough
-      if (acSignal > acPeak) acPeak = acSignal;
-      if (acSignal < acTrough) acTrough = acSignal;
-
-      unsigned long timeSinceLastBeat = now - lastBeatTime;
-
-      // HARDENED NORMAL RESTING LOCKOUT (65-80 BPM):
-      // Minimum refractory period (620ms) locks out dicrotic notch bounces
-      unsigned long minRefractory = (IBI * 7) / 10;
-      if (minRefractory < 620) minRefractory = 620;
-
-      // Dynamic trigger threshold: 50% of peak AC amplitude or minimum 8 ADC counts
-      int triggerThresh = (acPeak > 16) ? (acPeak / 2) : 8;
-
-      // Trigger on genuine systolic peak
-      if (timeSinceLastBeat > minRefractory) {
-        if ((acSignal > triggerThresh) && !pulseDetected) {
-          pulseDetected = true;
-          IBI = timeSinceLastBeat;
-          lastBeatTime = now;
-
-          int instBPM = 60000UL / IBI;
-
-          // Fold any double-harmonic artifact (>98 BPM at rest) to fundamental
-          if (instBPM > 98 && instBPM <= 165) {
-            instBPM = instBPM / 2;
-            if (instBPM < 65) instBPM = 68 + (instBPM % 10);
-          }
-
-          // Clamp to normal resting physiological band (65 - 88 BPM)
-          if (instBPM >= 55 && instBPM <= 110) {
-            bpmHistory[bpmIdx] = instBPM;
-            bpmIdx = (bpmIdx + 1) % 8;
-            long sum = 0;
-            for (uint8_t i = 0; i < 8; i++) sum += bpmHistory[i];
-            calculatedBPM = sum / 8;
-          }
-        }
-      }
-
-      // Reset pulse detection after systolic wave returns to baseline
-      if (acSignal < (triggerThresh / 2) && pulseDetected) {
-        pulseDetected = false;
-        // Slowly decay peak for continuous sensitivity adaptation
-        acPeak = (acPeak * 3 + triggerThresh) / 4;
-      }
-
-      // Idle timeout safety check
-      if (timeSinceLastBeat > 2200) {
-        lastBeatTime = now;
-        acPeak = 20;
-      }
-    } else {
-      // Finger detached / idle sensor
-      humanContactFrames = 0;
-      calculatedBPM = 0;
-      pulseDetected = false;
-      acPeak = 20;
-      acTrough = -20;
-    }
   }
 
   // 3. MPU6050 Accelerometer & Fall Detection (every 50ms = 20Hz)
@@ -281,8 +298,8 @@ void loop() {
     }
   }
 
-  // 4. OLED Refresh via U8x8 (every 250ms)
-  if (oledReady && (now - timerOLED >= 250)) {
+  // 4. OLED Refresh via U8x8 (every 200ms)
+  if (oledReady && (now - timerOLED >= 200)) {
     timerOLED = now;
 
     char lineBuf[17];
@@ -291,10 +308,14 @@ void loop() {
     u8x8.drawString(0, 0, " SMART WARD ICU ");
 
     // Line 1: Heart Rate
-    if (calculatedBPM > 0) {
-      snprintf(lineBuf, sizeof(lineBuf), "HR : %3d BPM NRM", calculatedBPM);
+    if (calculatedBPM >= 45 && calculatedBPM <= 200 && pulseSignal > 150 && pulseSignal < 900) {
+      snprintf(lineBuf, sizeof(lineBuf), "HR : %3d BPM %s", calculatedBPM, pulseDetected ? "<3" : "  ");
     } else {
-      snprintf(lineBuf, sizeof(lineBuf), "HR : -- [NO PAT]");
+      if (pulseSignal > 150 && pulseSignal < 900) {
+        snprintf(lineBuf, sizeof(lineBuf), "HR : Detecting..");
+      } else {
+        snprintf(lineBuf, sizeof(lineBuf), "HR : -- [NO PAT]");
+      }
     }
     u8x8.drawString(0, 1, lineBuf);
 
@@ -333,7 +354,7 @@ void loop() {
     u8x8.drawString(0, 7, fallAlert ? "!EMERGENCY SOS!" : ">> NORMAL STATUS");
   }
 
-  // 5. Serial Monitor Stream (every 1000ms)
+  // 5. Serial Telemetry Stream (every 1000ms)
   if (now - timerSerial >= 1000) {
     timerSerial = now;
 
@@ -341,10 +362,17 @@ void loop() {
     float currentLon = gps.location.isValid() ? gps.location.lng() : HOME_LON;
     int currentSats = gps.location.isValid() ? gps.satellites.value() : 0;
 
+    bool validPulse = (calculatedBPM >= 45 && calculatedBPM <= 200 && pulseSignal > 150 && pulseSignal < 900);
+    int telemetryBPM = validPulse ? calculatedBPM : 0;
+
     Serial.print(F("[TELEMETRY] HR: "));
-    if (calculatedBPM > 0) {
-      Serial.print(calculatedBPM);
-      Serial.print(F(" BPM"));
+    if (validPulse) {
+      Serial.print(telemetryBPM);
+      Serial.print(F(" BPM (IBI: "));
+      Serial.print(IBI);
+      Serial.print(F("ms, Amp: "));
+      Serial.print(amp);
+      Serial.print(F(")"));
     } else {
       Serial.print(F("-- (NO PATIENT)"));
     }
@@ -352,24 +380,14 @@ void loop() {
     Serial.print(gForce, 2);
     Serial.print(F("G | Fall: "));
     Serial.print(fallAlert ? F("ALERT") : F("STABLE"));
-    Serial.print(F(" | GPS: "));
-    Serial.print(currentLat, 4);
-    Serial.print(F(", "));
-    Serial.print(currentLon, 4);
-    Serial.print(F(" (Sats: "));
-    Serial.print(currentSats);
-    Serial.print(F(", Bytes: "));
-    Serial.print(gpsBytes);
-    Serial.print(F(") | A0: "));
-    Serial.print(rawPulse);
-    Serial.print(F(" | DC: "));
-    Serial.print(dcBaseline);
-    Serial.print(F(" | AC: "));
-    Serial.println(filteredSignal - dcBaseline);
+    Serial.print(F(" | A0: "));
+    Serial.print(pulseSignal);
+    Serial.print(F(" | Thresh: "));
+    Serial.println(thresh);
 
     // JSON formatted packet for Python Smart Ward Monitor
     Serial.print(F("{\"bpm\":"));
-    Serial.print(calculatedBPM);
+    Serial.print(telemetryBPM);
     Serial.print(F(",\"gforce\":"));
     Serial.print(gForce, 2);
     Serial.print(F(",\"fall\":"));
@@ -381,7 +399,7 @@ void loop() {
     Serial.print(F(",\"sats\":"));
     Serial.print(currentSats);
     Serial.print(F(",\"pulse_raw\":"));
-    Serial.print(rawPulse);
+    Serial.print(pulseSignal);
     Serial.println(F("}"));
   }
 }
