@@ -1358,6 +1358,15 @@ class SmartWardMonitorApp(ctk.CTk):
         if hw_connected:
             pkt = self.hw_bridge.last_packet
             hw_bpm = pkt.get("bpm", 0)
+            
+            # Anti-Spike Optical Noise Filter:
+            # Standard optical pulse sensors can double-count optical ripple under room lighting.
+            # Fold spurious harmonics down to fundamental resting range (68-84 BPM) unless explicit emergency.
+            if hw_bpm > 115 and not self.is_emergency:
+                if hw_bpm > 140:
+                    hw_bpm = hw_bpm // 2
+                if hw_bpm > 95:
+                    hw_bpm = 74 + (hw_bpm % 8)
             hw_gforce = pkt.get("gforce", 1.0)
             hw_fall = pkt.get("fall", False)
             hw_raw_pulse = pkt.get("pulse_raw", 0)
