@@ -1,0 +1,2098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>D.B.M.S. Smart Ward ICU Dashboard</title>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* ==========================================================================
+       D.B.M.S. SMART WARD ICU DASHBOARD - TELEMETRY TERMINAL STYLESHEET
+       Theme: Medical HUD / Dark Command Center
+       Palette:
+         - Background: #0b0f19
+         - Card Panels: #1e293b (Slate-800)
+         - Accents: Neon Cyan (#38bdf8), Emerald (#10b981), Crimson Alert (#ef4444)
+       ========================================================================== */
+
+    :root {
+      --bg-main: #0b0f19;
+      --bg-card: #1e293b;
+      --bg-card-hover: #24344d;
+      --bg-card-subtle: rgba(30, 41, 59, 0.7);
+      --border-card: #334155;
+      --border-card-subtle: rgba(51, 65, 85, 0.6);
+      
+      --accent-cyan: #38bdf8;
+      --accent-cyan-glow: rgba(56, 189, 248, 0.35);
+      --accent-cyan-dim: rgba(56, 189, 248, 0.12);
+      
+      --accent-emerald: #10b981;
+      --accent-emerald-glow: rgba(16, 185, 129, 0.35);
+      --accent-emerald-dim: rgba(16, 185, 129, 0.12);
+      
+      --accent-red: #ef4444;
+      --accent-red-glow: rgba(239, 68, 68, 0.45);
+      --accent-red-dim: rgba(239, 68, 68, 0.15);
+      
+      --accent-amber: #f59e0b;
+      --accent-purple: #a855f7;
+
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      
+      --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', "Courier New", monospace;
+
+      --card-radius: 14px;
+      --pill-radius: 9999px;
+      --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Reset & Base Setup */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      font-family: var(--font-ui);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      line-height: 1.5;
+      background-image: 
+        radial-gradient(circle at 10% 15%, rgba(56, 189, 248, 0.04) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.03) 0%, transparent 40%),
+        linear-gradient(rgba(11, 15, 25, 0.96), rgba(11, 15, 25, 0.96)),
+        repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(51, 65, 85, 0.08) 40px),
+        repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(51, 65, 85, 0.08) 40px);
+      background-size: 100% 100%, 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+    }
+
+    /* Global Emergency Screen Pulse (Triggered on Fall) */
+    body.emergency-flash {
+      animation: ambientRedFlash 1.6s infinite ease-in-out;
+    }
+
+    @keyframes ambientRedFlash {
+      0%, 100% {
+        box-shadow: inset 0 0 100px rgba(239, 68, 68, 0.15);
+      }
+      50% {
+        box-shadow: inset 0 0 180px rgba(239, 68, 68, 0.45);
+      }
+    }
+
+    /* Container */
+    .app-wrapper {
+      max-width: 1540px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      flex: 1;
+    }
+
+    /* ==========================================================================
+       HEADER & NAVIGATION BAR
+       ========================================================================== */
+    header.dashboard-header {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: var(--card-radius);
+      padding: 1rem 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5), 0 0 15px -3px var(--accent-cyan-dim);
+      position: relative;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .brand-logo-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(16, 185, 129, 0.1));
+      border: 1px solid var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-cyan);
+      box-shadow: 0 0 12px var(--accent-cyan-glow);
+    }
+
+    .brand-logo-icon svg {
+      width: 24px;
+      height: 24px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .brand-meta h1 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #ffffff, #e2e8f0 70%, var(--accent-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1.2;
+    }
+
+    .brand-subline {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .brand-subline span.pill-badge {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent-cyan);
+      padding: 0.15rem 0.5rem;
+      border-radius: var(--pill-radius);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+    }
+
+    /* Header Telemetry Cluster */
+    .header-telemetry-cluster {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      flex-wrap: wrap;
+    }
+
+    /* Live Clock */
+    .header-clock-box {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      padding-right: 1.25rem;
+      border-right: 1px solid var(--border-card-subtle);
+    }
+
+    .clock-time {
+      font-family: var(--font-mono);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: 0.05em;
+    }
+
+    .clock-date {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* ESP32 Connection Pill */
+    .iot-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      padding: 0.4rem 0.85rem;
+      border-radius: var(--pill-radius);
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border-card);
+      font-family: var(--font-mono);
+      transition: var(--transition-smooth);
+    }
+
+    .iot-status-badge.online {
+      border-color: rgba(16, 185, 129, 0.4);
+      color: #34d399;
+      box-shadow: 0 0 14px var(--accent-emerald-glow);
+    }
+
+    .iot-status-badge.offline {
+      border-color: rgba(239, 68, 68, 0.4);
+      color: #f87171;
+      box-shadow: 0 0 14px var(--accent-red-glow);
+    }
+
+    .iot-status-badge.simulated {
+      border-color: rgba(56, 189, 248, 0.4);
+      color: var(--accent-cyan);
+      box-shadow: 0 0 14px var(--accent-cyan-glow);
+    }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background-color: var(--text-dim);
+      position: relative;
+    }
+
+    .iot-status-badge.online .status-dot {
+      background-color: var(--accent-emerald);
+      box-shadow: 0 0 8px var(--accent-emerald);
+      animation: blinkBeacon 2s infinite;
+    }
+
+    .iot-status-badge.offline .status-dot {
+      background-color: var(--accent-red);
+      box-shadow: 0 0 8px var(--accent-red);
+    }
+
+    .iot-status-badge.simulated .status-dot {
+      background-color: var(--accent-cyan);
+      box-shadow: 0 0 8px var(--accent-cyan);
+      animation: blinkBeacon 2s infinite;
+    }
+
+    @keyframes blinkBeacon {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Sound Alarm Mute / Unmute Button */
+    .btn-audio-toggle {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-card);
+      color: var(--text-muted);
+      padding: 0.45rem 0.75rem;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      transition: var(--transition-smooth);
+    }
+
+    .btn-audio-toggle:hover {
+      background: var(--bg-card-hover);
+      color: var(--text-main);
+      border-color: var(--accent-cyan);
+    }
+
+    .btn-audio-toggle.active {
+      color: var(--accent-cyan);
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 10px var(--accent-cyan-dim);
+    }
+
+    /* ==========================================================================
+       PATIENT QUICK IDENTITY BANNER
+       ========================================================================== */
+    .patient-banner {
+      background: linear-gradient(90deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.95));
+      border: 1px solid var(--border-card-subtle);
+      border-radius: 10px;
+      padding: 0.75rem 1.25rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      font-size: 0.85rem;
+    }
+
+    .patient-info-list {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .patient-meta-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .patient-meta-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+
+    .patient-meta-value {
+      font-weight: 700;
+      color: #e2e8f0;
+      font-family: var(--font-mono);
+    }
+
+    .patient-meta-value.highlight {
+      color: var(--accent-cyan);
+    }
+
+    .ward-room-tag {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 0.35rem 0.85rem;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--accent-cyan);
+      font-weight: 700;
+    }
+
+    /* ==========================================================================
+       MAIN TELEMETRY GRID (RESPONSIVE)
+       ========================================================================== */
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 1.25rem;
+      align-items: stretch;
+    }
+
+    /* Card Panels Base */
+    .telemetry-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: var(--card-radius);
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      transition: var(--transition-smooth);
+    }
+
+    .telemetry-card:hover {
+      border-color: rgba(56, 189, 248, 0.4);
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5), 0 0 15px rgba(56, 189, 248, 0.08);
+    }
+
+    .card-header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+      padding-bottom: 0.65rem;
+    }
+
+    .card-title-group {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .card-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(56, 189, 248, 0.1);
+      color: var(--accent-cyan);
+    }
+
+    .card-icon svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+    }
+
+    .card-title-group h2 {
+      font-size: 0.88rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+
+    .card-tag {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      background: rgba(15, 23, 42, 0.8);
+      color: var(--text-dim);
+      border: 1px solid rgba(51, 65, 85, 0.7);
+    }
+
+    /* ==========================================================================
+       CARD 1: LIVE PATIENT HEART RATE (PRIMARY METRIC)
+       ========================================================================== */
+    .card-heart-rate {
+      grid-column: span 7;
+    }
+
+    .hr-display-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .hr-primary-stat {
+      display: flex;
+      align-items: baseline;
+      gap: 0.85rem;
+    }
+
+    .hr-numeric-value {
+      font-family: var(--font-mono);
+      font-size: 4.8rem;
+      font-weight: 800;
+      line-height: 1;
+      color: var(--accent-cyan);
+      text-shadow: 0 0 25px var(--accent-cyan-glow);
+      transition: color 0.3s ease, text-shadow 0.3s ease;
+      letter-spacing: -0.04em;
+    }
+
+    .hr-unit-cluster {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .hr-unit-cluster .unit {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+
+    .rhythm-pill {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.2rem 0.6rem;
+      border-radius: var(--pill-radius);
+      background: var(--accent-emerald-dim);
+      color: var(--accent-emerald);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      display: inline-block;
+      width: fit-content;
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+    }
+
+    /* Pulsing Animated Heart */
+    .heart-animation-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 90px;
+      height: 90px;
+    }
+
+    .heart-ripple {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(239, 68, 68, 0.4) 0%, transparent 70%);
+      opacity: 0;
+      transform: scale(0.6);
+      pointer-events: none;
+    }
+
+    .heart-svg {
+      width: 58px;
+      height: 58px;
+      fill: #ef4444;
+      filter: drop-shadow(0 0 14px rgba(239, 68, 68, 0.75));
+      transform-origin: center center;
+      animation: heartBeat 0.85s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
+    }
+
+    @keyframes heartBeat {
+      0% { transform: scale(0.94); }
+      15% { transform: scale(1.18); }
+      30% { transform: scale(0.98); }
+      45% { transform: scale(1.12); }
+      60% { transform: scale(0.94); }
+      100% { transform: scale(0.94); }
+    }
+
+    /* Canvas ECG Graph */
+    .ecg-screen-container {
+      background: #070b14;
+      border: 1px solid rgba(51, 65, 85, 0.7);
+      border-radius: 10px;
+      position: relative;
+      height: 140px;
+      width: 100%;
+      overflow: hidden;
+      margin-bottom: 1rem;
+      box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+    }
+
+    .ecg-grid-overlay {
+      position: absolute;
+      inset: 0;
+      background-size: 20px 20px;
+      background-image: 
+        linear-gradient(to right, rgba(56, 189, 248, 0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(56, 189, 248, 0.05) 1px, transparent 1px);
+      pointer-events: none;
+    }
+
+    canvas#ecgCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .ecg-legend-badge {
+      position: absolute;
+      top: 8px;
+      left: 10px;
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: rgba(56, 189, 248, 0.8);
+      background: rgba(11, 15, 25, 0.85);
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      letter-spacing: 0.05em;
+    }
+
+    /* Secondary Vitals Ribbon */
+    .secondary-vitals-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+      margin-top: auto;
+    }
+
+    .vital-tile {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(51, 65, 85, 0.6);
+      border-radius: 8px;
+      padding: 0.65rem 0.85rem;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .vital-tile-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .vital-tile-value {
+      font-family: var(--font-mono);
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-top: 0.1rem;
+    }
+
+    .vital-tile-sub {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+    }
+
+    /* ==========================================================================
+       CARD 2: WARD & SAFETY STATUS CARD (DYNAMIC ALERT)
+       ========================================================================== */
+    .card-safety-status {
+      grid-column: span 5;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+    }
+
+    /* Emergency Alert Style when Fall Detected */
+    .card-safety-status.emergency-active {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(30, 41, 59, 0.95)) !important;
+      border: 2px solid var(--accent-red) !important;
+      box-shadow: 0 0 35px var(--accent-red-glow), inset 0 0 25px rgba(239, 68, 68, 0.3) !important;
+      animation: alertCardPulse 1.2s infinite alternate ease-in-out;
+    }
+
+    @keyframes alertCardPulse {
+      0% {
+        border-color: rgba(239, 68, 68, 0.6);
+        box-shadow: 0 0 20px var(--accent-red-glow);
+      }
+      100% {
+        border-color: #f87171;
+        box-shadow: 0 0 45px rgba(239, 68, 68, 0.8), inset 0 0 30px rgba(239, 68, 68, 0.4);
+      }
+    }
+
+    .safety-banner-box {
+      border-radius: 10px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 0.65rem;
+      border: 1px solid transparent;
+      transition: var(--transition-smooth);
+      min-height: 150px;
+    }
+
+    /* Normal - Stable Mode */
+    .safety-banner-box.state-normal {
+      background: rgba(16, 185, 129, 0.08);
+      border-color: rgba(16, 185, 129, 0.35);
+      box-shadow: 0 0 20px var(--accent-emerald-dim);
+    }
+
+    .safety-banner-box.state-normal .status-heading {
+      color: #34d399;
+      text-shadow: 0 0 12px var(--accent-emerald-glow);
+    }
+
+    /* Emergency State Mode */
+    .safety-banner-box.state-emergency {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: var(--accent-red);
+      box-shadow: 0 0 30px var(--accent-red-glow);
+      animation: flashWarningText 0.8s infinite alternate;
+    }
+
+    @keyframes flashWarningText {
+      0% { opacity: 0.85; }
+      100% { opacity: 1; }
+    }
+
+    .safety-banner-box.state-emergency .status-heading {
+      color: #ffffff;
+      text-shadow: 0 0 16px rgba(255, 255, 255, 0.9), 0 0 25px var(--accent-red);
+    }
+
+    .status-badge-icon {
+      font-size: 2.2rem;
+      line-height: 1;
+    }
+
+    .status-heading {
+      font-family: var(--font-mono);
+      font-size: 1.45rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      line-height: 1.2;
+    }
+
+    .status-details {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      max-width: 90%;
+      margin: 0 auto;
+    }
+
+    /* Motion & Gyro Telemetry Specs */
+    .safety-telemetry-specs {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(51, 65, 85, 0.5);
+      border-radius: 8px;
+      padding: 0.85rem 1rem;
+      margin: 1rem 0;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+      font-size: 0.75rem;
+    }
+
+    .spec-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .spec-label {
+      color: var(--text-dim);
+      font-size: 0.68rem;
+      text-transform: uppercase;
+    }
+
+    .spec-val {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: #e2e8f0;
+      font-size: 0.88rem;
+    }
+
+    /* Emergency Action Controls */
+    .safety-action-row {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .btn-action {
+      flex: 1;
+      padding: 0.7rem 1rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: var(--font-ui);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: var(--transition-smooth);
+    }
+
+    .btn-emergency-clear {
+      background: rgba(239, 68, 68, 0.2);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.5);
+    }
+
+    .btn-emergency-clear:hover {
+      background: var(--accent-red);
+      color: #ffffff;
+      box-shadow: 0 0 15px var(--accent-red-glow);
+    }
+
+    .btn-sim-fall {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+    }
+
+    .btn-sim-fall:hover {
+      background: var(--accent-cyan);
+      color: #0b0f19;
+      box-shadow: 0 0 15px var(--accent-cyan-glow);
+    }
+
+    /* ==========================================================================
+       CARD 3: SYSTEM CONTROL & ARMING (DIGITAL SWITCH)
+       ========================================================================== */
+    .card-system-control {
+      grid-column: span 4;
+    }
+
+    .system-toggle-box {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(51, 65, 85, 0.7);
+      border-radius: 12px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.25rem;
+      text-align: center;
+    }
+
+    .system-mode-readout {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .mode-sublabel {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+
+    .current-mode-text {
+      font-family: var(--font-mono);
+      font-size: 1.85rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      transition: var(--transition-smooth);
+    }
+
+    .current-mode-text.armed {
+      color: var(--accent-cyan);
+      text-shadow: 0 0 16px var(--accent-cyan-glow);
+    }
+
+    .current-mode-text.standby {
+      color: var(--accent-amber);
+      text-shadow: 0 0 16px rgba(245, 158, 11, 0.4);
+    }
+
+    /* High-Tech Switch Toggle UI */
+    .switch-housing {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .toggle-state-label {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      transition: var(--transition-smooth);
+    }
+
+    .toggle-state-label.label-standby {
+      color: var(--accent-amber);
+    }
+
+    .toggle-state-label.label-armed {
+      color: var(--accent-cyan);
+    }
+
+    .toggle-track {
+      width: 76px;
+      height: 38px;
+      background-color: #0f172a;
+      border-radius: 20px;
+      border: 2px solid #334155;
+      position: relative;
+      transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6);
+    }
+
+    .toggle-thumb {
+      width: 28px;
+      height: 28px;
+      background: #f8fafc;
+      border-radius: 50%;
+      position: absolute;
+      top: 3px;
+      left: 4px;
+      transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .toggle-thumb::after {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #0f172a;
+    }
+
+    /* Switch Checked (ARMED) State */
+    .switch-checkbox {
+      display: none;
+    }
+
+    .switch-checkbox:checked + .switch-housing .toggle-track {
+      background-color: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 16px var(--accent-cyan-dim), inset 0 2px 6px rgba(0,0,0,0.5);
+    }
+
+    .switch-checkbox:checked + .switch-housing .toggle-thumb {
+      left: 40px;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 14px var(--accent-cyan);
+    }
+
+    .switch-checkbox:checked + .switch-housing .toggle-thumb::after {
+      background: #ffffff;
+    }
+
+    .control-subnotes {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      margin-top: 0.5rem;
+      line-height: 1.4;
+    }
+
+    /* ==========================================================================
+       CARD 4: ESP32 IOT NODE & TELEMETRY LINK
+       ========================================================================== */
+    .card-esp32-node {
+      grid-column: span 4;
+    }
+
+    .node-metrics-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      flex: 1;
+    }
+
+    .node-metric-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.55rem 0.75rem;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(51, 65, 85, 0.5);
+      border-radius: 8px;
+      font-size: 0.8rem;
+    }
+
+    .node-metric-row .label {
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    .node-metric-row .val {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: #e2e8f0;
+    }
+
+    .signal-bar-wrap {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 14px;
+    }
+
+    .signal-bar {
+      width: 3px;
+      background: var(--text-dim);
+      border-radius: 1px;
+    }
+
+    .signal-bar.bar-1 { height: 30%; }
+    .signal-bar.bar-2 { height: 50%; }
+    .signal-bar.bar-3 { height: 75%; }
+    .signal-bar.bar-4 { height: 100%; }
+
+    .signal-active .signal-bar {
+      background: var(--accent-cyan);
+      box-shadow: 0 0 5px var(--accent-cyan);
+    }
+
+    /* ==========================================================================
+       CARD 5: REAL-TIME AUDIT LOG & NETWORK CONSOLE
+       ========================================================================== */
+    .card-activity-log {
+      grid-column: span 4;
+    }
+
+    .log-stream-box {
+      background: #080d16;
+      border: 1px solid rgba(51, 65, 85, 0.7);
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      height: 180px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.8);
+    }
+
+    /* Custom Scrollbar */
+    .log-stream-box::-webkit-scrollbar {
+      width: 5px;
+    }
+    .log-stream-box::-webkit-scrollbar-track {
+      background: #080d16;
+    }
+    .log-stream-box::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+
+    .log-entry {
+      line-height: 1.35;
+      display: flex;
+      gap: 0.45rem;
+      word-break: break-all;
+    }
+
+    .log-time {
+      color: var(--text-dim);
+      flex-shrink: 0;
+    }
+
+    .log-tag {
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .log-tag.tag-poll { color: var(--accent-cyan); }
+    .log-tag.tag-ok   { color: var(--accent-emerald); }
+    .log-tag.tag-warn { color: var(--accent-amber); }
+    .log-tag.tag-crit { color: var(--accent-red); font-weight: 800; }
+
+    .log-msg {
+      color: #cbd5e1;
+    }
+
+    /* ==========================================================================
+       FOOTER
+       ========================================================================== */
+    footer.dashboard-footer {
+      border-top: 1px solid var(--border-card-subtle);
+      padding: 1rem 0 0.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .footer-right {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      font-family: var(--font-mono);
+    }
+
+    /* Responsive Breakpoints */
+    @media (max-width: 1200px) {
+      .card-heart-rate { grid-column: span 12; }
+      .card-safety-status { grid-column: span 12; }
+      .card-system-control { grid-column: span 6; }
+      .card-esp32-node { grid-column: span 6; }
+      .card-activity-log { grid-column: span 12; }
+    }
+
+    @media (max-width: 768px) {
+      .telemetry-grid { grid-template-columns: 1fr; }
+      .card-heart-rate,
+      .card-safety-status,
+      .card-system-control,
+      .card-esp32-node,
+      .card-activity-log {
+        grid-column: span 1;
+      }
+      .hr-display-container {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .header-telemetry-cluster {
+        width: 100%;
+        justify-content: space-between;
+      }
+      .header-clock-box {
+        border-right: none;
+        padding-right: 0;
+      }
+      .patient-info-list {
+        gap: 0.85rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-wrapper">
+
+    <!-- ======================================================================
+         TOP BAR: CLINICAL TELEMETRY HEADER
+         ====================================================================== -->
+    <header class="dashboard-header">
+      <div class="brand-section">
+        <div class="brand-logo-icon">
+          <!-- Pulse Medical Monitor Icon -->
+          <svg viewBox="0 0 24 24">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+          </svg>
+        </div>
+        <div class="brand-meta">
+          <h1>D.B.M.S. Smart Ward ICU Dashboard</h1>
+          <div class="brand-subline">
+            <span>Critical Care Telemetry</span>
+            <span class="pill-badge">v2.4 IoT-Node</span>
+            <span>Room 402 // Bed 03</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-telemetry-cluster">
+        <!-- Live Clock -->
+        <div class="header-clock-box">
+          <div class="clock-time" id="systemClock">--:--:--</div>
+          <div class="clock-date" id="systemDate">CONNECTING...</div>
+        </div>
+
+        <!-- ESP32 IoT Node Live Status Indicator -->
+        <div class="iot-status-badge online" id="esp32Badge">
+          <div class="status-dot"></div>
+          <span id="esp32BadgeText">ESP32: CONNECTING</span>
+        </div>
+
+        <!-- Audio Alert Chime Mute/Unmute Toggle -->
+        <button class="btn-audio-toggle" id="btnAudioMute" title="Toggle Medical Audio Alerts">
+          <span id="audioIcon">🔇</span>
+          <span id="audioLabel">AUDIO MUTED</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ======================================================================
+         PATIENT METADATA BANNER
+         ====================================================================== -->
+    <section class="patient-banner">
+      <div class="patient-info-list">
+        <div class="patient-meta-item">
+          <span class="patient-meta-label">Patient Name</span>
+          <span class="patient-meta-value highlight">Robert Jenkins</span>
+        </div>
+        <div class="patient-meta-item">
+          <span class="patient-meta-label">Patient ID</span>
+          <span class="patient-meta-value">#ICU-9024-X</span>
+        </div>
+        <div class="patient-meta-item">
+          <span class="patient-meta-label">Acuity Level</span>
+          <span class="patient-meta-value" style="color: #38bdf8;">Level 1 (Continuous)</span>
+        </div>
+        <div class="patient-meta-item">
+          <span class="patient-meta-label">Attending Physician</span>
+          <span class="patient-meta-value">Dr. A. Vance, MD</span>
+        </div>
+        <div class="patient-meta-item">
+          <span class="patient-meta-label">Telemetry Feed</span>
+          <span class="patient-meta-value" id="feedFrequency">1000ms Loop</span>
+        </div>
+      </div>
+      <div class="ward-room-tag">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+        <span>ZONE-B : POST-OPERATIVE CARE</span>
+      </div>
+    </section>
+
+    <!-- ======================================================================
+         MAIN RESPONSIVE TELEMETRY GRID
+         ====================================================================== -->
+    <main class="telemetry-grid">
+
+      <!-- ==================================================================
+           CARD 1: LIVE PATIENT HEART RATE METRIC CARD (PRIMARY)
+           ================================================================== -->
+      <article class="telemetry-card card-heart-rate">
+        <div class="card-header-bar">
+          <div class="card-title-group">
+            <div class="card-icon">
+              <!-- Pulse ECG Icon -->
+              <svg viewBox="0 0 24 24">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+              </svg>
+            </div>
+            <h2>Live Patient Heart Rate</h2>
+          </div>
+          <span class="card-tag">OPTICAL PPG SENSOR (MAX30102)</span>
+        </div>
+
+        <!-- Metric Display & Pulsing Heart -->
+        <div class="hr-display-container">
+          <div class="hr-primary-stat">
+            <span class="hr-numeric-value" id="bpmValue">72</span>
+            <div class="hr-unit-cluster">
+              <span class="unit">BPM</span>
+              <span class="rhythm-pill" id="rhythmPill">NORMAL SINUS</span>
+            </div>
+          </div>
+
+          <!-- Pulsing Heart Animation with Ripple -->
+          <div class="heart-animation-wrapper">
+            <div class="heart-ripple" id="heartRipple"></div>
+            <!-- SVG Heart -->
+            <svg class="heart-svg" id="heartSvg" viewBox="0 0 24 24">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Real-time Oscilloscope ECG Canvas Display -->
+        <div class="ecg-screen-container">
+          <div class="ecg-grid-overlay"></div>
+          <div class="ecg-legend-badge">LEAD II // 25mm/s // 10mm/mV</div>
+          <canvas id="ecgCanvas"></canvas>
+        </div>
+
+        <!-- Secondary Multi-Vital Readouts -->
+        <div class="secondary-vitals-strip">
+          <div class="vital-tile">
+            <span class="vital-tile-label">Blood Oxygen (SpO₂)</span>
+            <span class="vital-tile-value" id="spo2Value" style="color: #38bdf8;">98%</span>
+            <span class="vital-tile-sub">Target: &gt; 95%</span>
+          </div>
+          <div class="vital-tile">
+            <span class="vital-tile-label">Non-Invasive BP</span>
+            <span class="vital-tile-value" id="bpValue" style="color: #34d399;">120/78</span>
+            <span class="vital-tile-sub">MAP: 92 mmHg</span>
+          </div>
+          <div class="vital-tile">
+            <span class="vital-tile-label">Core Temperature</span>
+            <span class="vital-tile-value" id="tempValue" style="color: #f59e0b;">36.9 °C</span>
+            <span class="vital-tile-sub">Axillary Probe</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- ==================================================================
+           CARD 2: WARD & SAFETY STATUS CARD (DYNAMIC ALERT)
+           ================================================================== -->
+      <article class="telemetry-card card-safety-status" id="safetyCard">
+        <div class="card-header-bar">
+          <div class="card-title-group">
+            <div class="card-icon" id="safetyCardIcon">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
+            </div>
+            <h2>Ward & Safety Status</h2>
+          </div>
+          <span class="card-tag" id="safetyModeBadge">IMU FALL GUARD</span>
+        </div>
+
+        <!-- Dynamic Status Display Box -->
+        <div class="safety-banner-box state-normal" id="safetyBannerBox">
+          <div class="status-badge-icon" id="statusIcon">🛡️</div>
+          <div class="status-heading" id="safetyStatusText">NORMAL - STABLE</div>
+          <div class="status-details" id="safetyStatusDesc">
+            Patient posture stable in bed. Accelerometer baseline normal; zero abnormal impact vectors detected.
+          </div>
+        </div>
+
+        <!-- Accelerometer & Bed Telemetry Specs -->
+        <div class="safety-telemetry-specs">
+          <div class="spec-item">
+            <span class="spec-label">Bed Occupancy</span>
+            <span class="spec-val" id="bedOccupancyVal" style="color: #34d399;">DETECTED (In Bed)</span>
+          </div>
+          <div class="spec-item">
+            <span class="spec-label">Impact G-Force Spike</span>
+            <span class="spec-val" id="gForceVal">0.04 G (Nominal)</span>
+          </div>
+          <div class="spec-item">
+            <span class="spec-label">IMU Sensor Orientation</span>
+            <span class="spec-val" id="imuOrientationVal">Supine / Horizontal</span>
+          </div>
+          <div class="spec-item">
+            <span class="spec-label">Safety Incident Log</span>
+            <span class="spec-val" id="incidentCountVal">0 Incidents</span>
+          </div>
+        </div>
+
+        <!-- Interactive Safety Action Controls -->
+        <div class="safety-action-row">
+          <button class="btn-action btn-sim-fall" id="btnSimulateFall" title="Trigger Fall Event to test Alert">
+            <span>⚡ Test Fall Alert</span>
+          </button>
+          <button class="btn-action btn-emergency-clear" id="btnClearEmergency" title="Acknowledge and reset emergency status">
+            <span>✓ Clear / Reset</span>
+          </button>
+        </div>
+      </article>
+
+      <!-- ==================================================================
+           CARD 3: SYSTEM CONTROL TOGGLE (ARMED / STANDBY)
+           ================================================================== -->
+      <article class="telemetry-card card-system-control">
+        <div class="card-header-bar">
+          <div class="card-title-group">
+            <div class="card-icon">
+              <!-- Sliders / Switch Icon -->
+              <svg viewBox="0 0 24 24">
+                <line x1="4" y1="21" x2="4" y2="14"></line>
+                <line x1="4" y1="10" x2="4" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12" y2="3"></line>
+                <line x1="20" y1="21" x2="20" y2="16"></line>
+                <line x1="20" y1="12" x2="20" y2="3"></line>
+                <line x1="1" y1="14" x2="7" y2="14"></line>
+                <line x1="9" y1="8" x2="15" y2="8"></line>
+                <line x1="17" y1="16" x2="23" y2="16"></line>
+              </svg>
+            </div>
+            <h2>System Control Toggle</h2>
+          </div>
+          <span class="card-tag">GUARD PERIMETER</span>
+        </div>
+
+        <!-- High-Tech Toggle Switch Display -->
+        <div class="system-toggle-box">
+          <div class="system-mode-readout">
+            <span class="mode-sublabel">Monitoring Node State</span>
+            <span class="current-mode-text armed" id="systemStateDisplay">ARMED</span>
+          </div>
+
+          <!-- Digital Switch Component -->
+          <input type="checkbox" id="systemArmedToggle" class="switch-checkbox" checked />
+          <label for="systemArmedToggle" class="switch-housing" title="Click to toggle ARMED / STANDBY">
+            <span class="toggle-state-label label-standby">STANDBY</span>
+            <div class="toggle-track">
+              <div class="toggle-thumb"></div>
+            </div>
+            <span class="toggle-state-label label-armed">ARMED</span>
+          </label>
+
+          <p class="control-subnotes" id="toggleDescription">
+            Node is actively monitoring vitals &amp; motion sensors. Fall algorithms and threshold alerts will trigger instant sirens.
+          </p>
+        </div>
+      </article>
+
+      <!-- ==================================================================
+           CARD 4: ESP32 IOT NODE LIVE TELEMETRY & HARDWARE HEALTH
+           ================================================================== -->
+      <article class="telemetry-card card-esp32-node">
+        <div class="card-header-bar">
+          <div class="card-title-group">
+            <div class="card-icon">
+              <!-- Microchip / WiFi Icon -->
+              <svg viewBox="0 0 24 24">
+                <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+                <rect x="9" y="9" width="6" height="6"></rect>
+                <line x1="9" y1="1" x2="9" y2="4"></line>
+                <line x1="15" y1="1" x2="15" y2="4"></line>
+                <line x1="9" y1="20" x2="9" y2="23"></line>
+                <line x1="15" y1="20" x2="15" y2="23"></line>
+                <line x1="20" y1="9" x2="23" y2="9"></line>
+                <line x1="20" y1="14" x2="23" y2="14"></line>
+                <line x1="1" y1="9" x2="4" y2="9"></line>
+                <line x1="1" y1="14" x2="4" y2="14"></line>
+              </svg>
+            </div>
+            <h2>ESP32 Node Link</h2>
+          </div>
+          <span class="card-tag">802.11 b/g/n</span>
+        </div>
+
+        <div class="node-metrics-list">
+          <div class="node-metric-row">
+            <span class="label">Hardware Node IP</span>
+            <span class="val" id="nodeIpVal" style="color: #38bdf8;">192.168.1.145</span>
+          </div>
+          <div class="node-metric-row">
+            <span class="label">Polling Target</span>
+            <span class="val" style="color: #34d399;">GET /data (1.0s)</span>
+          </div>
+          <div class="node-metric-row">
+            <span class="label">Wi-Fi Signal (RSSI)</span>
+            <div style="display: flex; align-items: center; gap: 0.6rem;">
+              <span class="val" id="nodeRssiVal">-54 dBm</span>
+              <div class="signal-bar-wrap signal-active">
+                <div class="signal-bar bar-1"></div>
+                <div class="signal-bar bar-2"></div>
+                <div class="signal-bar bar-3"></div>
+                <div class="signal-bar bar-4"></div>
+              </div>
+            </div>
+          </div>
+          <div class="node-metric-row">
+            <span class="label">Loop Latency</span>
+            <span class="val" id="nodeLatencyVal">12 ms</span>
+          </div>
+          <div class="node-metric-row">
+            <span class="label">ESP32 Uptime</span>
+            <span class="val" id="nodeUptimeVal">02h 45m 18s</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- ==================================================================
+           CARD 5: REAL-TIME ACTIVITY & TELEMETRY AUDIT LOG
+           ================================================================== -->
+      <article class="telemetry-card card-activity-log">
+        <div class="card-header-bar">
+          <div class="card-title-group">
+            <div class="card-icon">
+              <!-- Terminal / Log Icon -->
+              <svg viewBox="0 0 24 24">
+                <polyline points="4 17 10 11 4 5"></polyline>
+                <line x1="12" y1="19" x2="20" y2="19"></line>
+              </svg>
+            </div>
+            <h2>Real-Time Audit Log</h2>
+          </div>
+          <span class="card-tag">LIVE TELEMETRY STREAM</span>
+        </div>
+
+        <div class="log-stream-box" id="logStreamBox">
+          <!-- Dynamically populated entries -->
+        </div>
+      </article>
+
+    </main>
+
+    <!-- ======================================================================
+         FOOTER
+         ====================================================================== -->
+    <footer class="dashboard-footer">
+      <div class="footer-left">
+        <span>© D.B.M.S. Smart Ward Medical Technologies • ICU Command Suite</span>
+        <span>|</span>
+        <span>IEC 60601-1-8 Medical Alarm Compliance Standard</span>
+      </div>
+      <div class="footer-right">
+        <span>STATUS: <strong style="color: #34d399;">OPERATIONAL</strong></span>
+        <span>SYNC: <span id="lastSyncTime">--:--:--</span></span>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- ==========================================================================
+       JAVASCRIPT TELEMETRY ENGINE & REAL-TIME CONTROLLER
+       ========================================================================== -->
+  <script>
+    (function () {
+      'use strict';
+
+      /* ------------------------------------------------------------------------
+         SYSTEM STATE & CONFIGURATION
+         ------------------------------------------------------------------------ */
+      const CONFIG = {
+        POLL_INTERVAL_MS: 1000,
+        DATA_ENDPOINT: '/data',
+        CONTROL_ENDPOINT: '/control',
+        DEFAULT_BPM: 74,
+      };
+
+      const state = {
+        isArmed: true,
+        isEmergency: false,
+        bpm: CONFIG.DEFAULT_BPM,
+        spo2: 98,
+        temp: 36.8,
+        systolic: 120,
+        diastolic: 78,
+        bedOccupied: true,
+        accel: { x: 0.02, y: -0.01, z: 0.98 },
+        gForceSpike: 0.04,
+        incidentCount: 0,
+        esp32: {
+          connected: true,
+          isSimulated: false,
+          ip: '192.168.1.145',
+          rssi: -54,
+          uptimeSec: 9918,
+          latencyMs: 12
+        },
+        audioMuted: true,
+        audioContext: null
+      };
+
+      /* ------------------------------------------------------------------------
+         DOM CACHE
+         ------------------------------------------------------------------------ */
+      const dom = {
+        systemClock: document.getElementById('systemClock'),
+        systemDate: document.getElementById('systemDate'),
+        esp32Badge: document.getElementById('esp32Badge'),
+        esp32BadgeText: document.getElementById('esp32BadgeText'),
+        btnAudioMute: document.getElementById('btnAudioMute'),
+        audioIcon: document.getElementById('audioIcon'),
+        audioLabel: document.getElementById('audioLabel'),
+
+        bpmValue: document.getElementById('bpmValue'),
+        rhythmPill: document.getElementById('rhythmPill'),
+        heartSvg: document.getElementById('heartSvg'),
+        heartRipple: document.getElementById('heartRipple'),
+        spo2Value: document.getElementById('spo2Value'),
+        bpValue: document.getElementById('bpValue'),
+        tempValue: document.getElementById('tempValue'),
+        ecgCanvas: document.getElementById('ecgCanvas'),
+
+        safetyCard: document.getElementById('safetyCard'),
+        safetyBannerBox: document.getElementById('safetyBannerBox'),
+        statusIcon: document.getElementById('statusIcon'),
+        safetyStatusText: document.getElementById('safetyStatusText'),
+        safetyStatusDesc: document.getElementById('safetyStatusDesc'),
+        bedOccupancyVal: document.getElementById('bedOccupancyVal'),
+        gForceVal: document.getElementById('gForceVal'),
+        imuOrientationVal: document.getElementById('imuOrientationVal'),
+        incidentCountVal: document.getElementById('incidentCountVal'),
+        btnSimulateFall: document.getElementById('btnSimulateFall'),
+        btnClearEmergency: document.getElementById('btnClearEmergency'),
+
+        systemStateDisplay: document.getElementById('systemStateDisplay'),
+        systemArmedToggle: document.getElementById('systemArmedToggle'),
+        toggleDescription: document.getElementById('toggleDescription'),
+
+        nodeIpVal: document.getElementById('nodeIpVal'),
+        nodeRssiVal: document.getElementById('nodeRssiVal'),
+        nodeLatencyVal: document.getElementById('nodeLatencyVal'),
+        nodeUptimeVal: document.getElementById('nodeUptimeVal'),
+        logStreamBox: document.getElementById('logStreamBox'),
+        lastSyncTime: document.getElementById('lastSyncTime')
+      };
+
+      /* ------------------------------------------------------------------------
+         CLOCK & CALENDAR CONTROLLER
+         ------------------------------------------------------------------------ */
+      function updateClock() {
+        const now = new Date();
+        const timeStr = now.toTimeString().split(' ')[0];
+        const dateStr = now.toLocaleDateString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+        dom.systemClock.textContent = timeStr;
+        dom.systemDate.textContent = dateStr;
+      }
+      setInterval(updateClock, 1000);
+      updateClock();
+
+      /* ------------------------------------------------------------------------
+         AUDIO SYNTHESIZER (WEB AUDIO API - NO EXTERNAL AUDIO FILES)
+         Synthesizes realistic hospital telemetry blips & critical alarms
+         ------------------------------------------------------------------------ */
+      function initAudio() {
+        if (!state.audioContext) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) {
+            state.audioContext = new AudioContextClass();
+          }
+        }
+        if (state.audioContext && state.audioContext.state === 'suspended') {
+          state.audioContext.resume();
+        }
+      }
+
+      function playHeartbeatChime() {
+        if (state.audioMuted || !state.audioContext) return;
+        try {
+          const ctx = state.audioContext;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          
+          osc.type = 'sine';
+          // Hospital monitor pulse tone (~880Hz or 987Hz)
+          osc.frequency.setValueAtTime(880, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.08);
+
+          gain.gain.setValueAtTime(0.04, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start();
+          osc.stop(ctx.currentTime + 0.08);
+        } catch (e) {
+          console.warn('Audio tone error', e);
+        }
+      }
+
+      function playEmergencySiren() {
+        if (state.audioMuted || !state.audioContext) return;
+        try {
+          const ctx = state.audioContext;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(950, ctx.currentTime);
+          osc.frequency.linearRampToValueAtTime(500, ctx.currentTime + 0.25);
+
+          gain.gain.setValueAtTime(0.12, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.28);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start();
+          osc.stop(ctx.currentTime + 0.3);
+        } catch (e) {
+          console.warn('Emergency audio error', e);
+        }
+      }
+
+      /* ------------------------------------------------------------------------
+         LOGGER UTILITY
+         ------------------------------------------------------------------------ */
+      function addLog(tag, msg, type = 'poll') {
+        const time = new Date().toTimeString().split(' ')[0];
+        const row = document.createElement('div');
+        row.className = 'log-entry';
+        
+        let tagClass = 'tag-poll';
+        if (type === 'ok') tagClass = 'tag-ok';
+        if (type === 'warn') tagClass = 'tag-warn';
+        if (type === 'crit') tagClass = 'tag-crit';
+
+        row.innerHTML = `
+          <span class="log-time">[${time}]</span>
+          <span class="log-tag ${tagClass}">[${tag}]</span>
+          <span class="log-msg">${msg}</span>
+        `;
+        dom.logStreamBox.appendChild(row);
+
+        // Keep last 40 log lines
+        while (dom.logStreamBox.children.length > 40) {
+          dom.logStreamBox.removeChild(dom.logStreamBox.firstChild);
+        }
+        dom.logStreamBox.scrollTop = dom.logStreamBox.scrollHeight;
+      }
+
+      /* ------------------------------------------------------------------------
+         ECG OSCILLOSCOPE CANVAS (REALISTIC CARDIAC WAVEFORM)
+         ------------------------------------------------------------------------ */
+      const canvas = dom.ecgCanvas;
+      const ctx = canvas.getContext('2d');
+      let canvasWidth = 0;
+      let canvasHeight = 0;
+      let ecgIndex = 0;
+      let ecgData = [];
+
+      function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        canvasWidth = canvas.width = rect.width * (window.devicePixelRatio || 1);
+        canvasHeight = canvas.height = rect.height * (window.devicePixelRatio || 1);
+      }
+      window.addEventListener('resize', resizeCanvas);
+      resizeCanvas();
+
+      // Precompute standard P-Q-R-S-T wave pattern
+      function generateEcgCycle() {
+        const cycle = [];
+        // Baseline (P wave start)
+        for (let i = 0; i < 8; i++) cycle.push(0);
+        // P-wave
+        for (let i = 0; i < 8; i++) cycle.push(Math.sin((i / 8) * Math.PI) * 0.15);
+        // PR segment
+        for (let i = 0; i < 6; i++) cycle.push(0);
+        // Q dip
+        cycle.push(-0.15);
+        // R peak (large upward deflection)
+        cycle.push(1.0);
+        // S dip
+        cycle.push(-0.35);
+        // ST segment
+        for (let i = 0; i < 5; i++) cycle.push(0);
+        // T wave
+        for (let i = 0; i < 12; i++) cycle.push(Math.sin((i / 12) * Math.PI) * 0.28);
+        // Isoelectric baseline until next beat
+        for (let i = 0; i < 18; i++) cycle.push(0);
+        return cycle;
+      }
+
+      const ecgCycleTemplate = generateEcgCycle();
+      let cyclePointer = 0;
+
+      function renderEcgFrame() {
+        if (!canvasWidth || !canvasHeight) {
+          requestAnimationFrame(renderEcgFrame);
+          return;
+        }
+
+        // Phosphor sweep effect: fade the canvas slowly
+        ctx.fillStyle = 'rgba(7, 11, 20, 0.14)';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        // Advance waveform based on current BPM
+        const speed = (state.bpm / 75) * 2.2;
+        cyclePointer = (cyclePointer + speed) % ecgCycleTemplate.length;
+        const normalizedSample = ecgCycleTemplate[Math.floor(cyclePointer)];
+
+        // Compute Y coordinate
+        const midY = canvasHeight * 0.58;
+        const amplitude = canvasHeight * 0.38;
+        const y = midY - (normalizedSample * amplitude);
+
+        // Record point
+        ecgIndex = (ecgIndex + 3) % canvasWidth;
+        ecgData[Math.floor(ecgIndex)] = y;
+
+        // Erase a cursor gap ahead of drawing to mimic medical sweep bars
+        ctx.fillStyle = '#070b14';
+        ctx.fillRect(ecgIndex + 1, 0, 18, canvasHeight);
+
+        // Draw active glow line
+        ctx.beginPath();
+        const prevX = (ecgIndex - 3 + canvasWidth) % canvasWidth;
+        const prevY = ecgData[Math.floor(prevX)] || midY;
+        ctx.moveTo(prevX, prevY);
+        ctx.lineTo(ecgIndex, y);
+
+        ctx.strokeStyle = state.isEmergency ? '#ef4444' : '#38bdf8';
+        ctx.shadowColor = state.isEmergency ? 'rgba(239, 68, 68, 0.9)' : 'rgba(56, 189, 248, 0.8)';
+        ctx.shadowBlur = 8;
+        ctx.lineWidth = 2.4 * (window.devicePixelRatio || 1);
+        ctx.stroke();
+
+        requestAnimationFrame(renderEcgFrame);
+      }
+      requestAnimationFrame(renderEcgFrame);
+
+      /* ------------------------------------------------------------------------
+         UI UPDATE LOGIC
+         ------------------------------------------------------------------------ */
+      function updateUI() {
+        // 1. Heart Rate & Pulsing
+        dom.bpmValue.textContent = state.bpm;
+        
+        // Adjust heart animation duration to match BPM exactly
+        const beatDuration = (60 / Math.max(state.bpm, 40)).toFixed(2);
+        dom.heartSvg.style.animationDuration = `${beatDuration}s`;
+
+        // Secondary Vitals
+        dom.spo2Value.textContent = `${state.spo2}%`;
+        dom.bpValue.textContent = `${state.systolic}/${state.diastolic}`;
+        dom.tempValue.textContent = `${state.temp.toFixed(1)} °C`;
+
+        // Rhythm classification
+        if (state.bpm < 60) {
+          dom.rhythmPill.textContent = 'BRADYCARDIA';
+          dom.rhythmPill.style.color = 'var(--accent-amber)';
+        } else if (state.bpm > 100) {
+          dom.rhythmPill.textContent = 'TACHYCARDIA';
+          dom.rhythmPill.style.color = 'var(--accent-red)';
+        } else {
+          dom.rhythmPill.textContent = 'NORMAL SINUS';
+          dom.rhythmPill.style.color = 'var(--accent-emerald)';
+        }
+
+        // 2. Safety & Fall Status Card
+        if (state.isEmergency) {
+          document.body.classList.add('emergency-flash');
+          dom.safetyCard.classList.add('emergency-active');
+
+          dom.safetyBannerBox.className = 'safety-banner-box state-emergency';
+          dom.statusIcon.textContent = '🚨';
+          dom.safetyStatusText.textContent = '🚨 EMERGENCY: FALL DETECTED!';
+          dom.safetyStatusDesc.textContent = 'CRITICAL ALERT: Rapid vertical descent & high deceleration impact registered. Accelerometer trip > 3.8G. Ward personnel dispatched!';
+
+          dom.bedOccupancyVal.textContent = 'VACATED / FLOOR SPIKE';
+          dom.bedOccupancyVal.style.color = '#ef4444';
+          dom.gForceVal.textContent = `${state.gForceSpike.toFixed(2)} G (CRITICAL SPIKE)`;
+          dom.gForceVal.style.color = '#ef4444';
+          dom.imuOrientationVal.textContent = 'Horizontal / Inverted';
+
+          playEmergencySiren();
+        } else {
+          document.body.classList.remove('emergency-flash');
+          dom.safetyCard.classList.remove('emergency-active');
+
+          dom.safetyBannerBox.className = 'safety-banner-box state-normal';
+          dom.statusIcon.textContent = '🛡️';
+          dom.safetyStatusText.textContent = 'NORMAL - STABLE';
+          dom.safetyStatusDesc.textContent = 'Patient posture stable in bed. Accelerometer baseline normal; zero abnormal impact vectors detected.';
+
+          dom.bedOccupancyVal.textContent = state.bedOccupied ? 'DETECTED (In Bed)' : 'EMPTY';
+          dom.bedOccupancyVal.style.color = state.bedOccupied ? '#34d399' : '#f59e0b';
+          dom.gForceVal.textContent = `${state.gForceSpike.toFixed(2)} G (Nominal)`;
+          dom.gForceVal.style.color = '#e2e8f0';
+          dom.imuOrientationVal.textContent = 'Supine / Horizontal';
+        }
+
+        dom.incidentCountVal.textContent = `${state.incidentCount} Incident(s)`;
+
+        // 3. System Mode (Armed vs Standby)
+        dom.systemArmedToggle.checked = state.isArmed;
+        if (state.isArmed) {
+          dom.systemStateDisplay.textContent = 'ARMED';
+          dom.systemStateDisplay.className = 'current-mode-text armed';
+          dom.toggleDescription.textContent = 'Node is actively monitoring vitals & motion sensors. Fall algorithms and threshold alerts will trigger instant sirens.';
+        } else {
+          dom.systemStateDisplay.textContent = 'STANDBY';
+          dom.systemStateDisplay.className = 'current-mode-text standby';
+          dom.toggleDescription.textContent = 'System is in maintenance/transport mode. Fall detection triggers are silenced for patient transfers.';
+        }
+
+        // 4. Connection Badge & Hardware Node
+        if (state.esp32.connected) {
+          if (state.esp32.isSimulated) {
+            dom.esp32Badge.className = 'iot-status-badge simulated';
+            dom.esp32BadgeText.textContent = 'ESP32: DEMO SIMULATOR';
+          } else {
+            dom.esp32Badge.className = 'iot-status-badge online';
+            dom.esp32BadgeText.textContent = 'ESP32 NODE: ONLINE';
+          }
+        } else {
+          dom.esp32Badge.className = 'iot-status-badge offline';
+          dom.esp32BadgeText.textContent = 'ESP32 NODE: OFFLINE';
+        }
+
+        dom.nodeIpVal.textContent = state.esp32.ip;
+        dom.nodeRssiVal.textContent = `${state.esp32.rssi} dBm`;
+        dom.nodeLatencyVal.textContent = `${state.esp32.latencyMs} ms`;
+        
+        // Format uptime
+        const hrs = Math.floor(state.esp32.uptimeSec / 3600).toString().padStart(2, '0');
+        const mins = Math.floor((state.esp32.uptimeSec % 3600) / 60).toString().padStart(2, '0');
+        const secs = (state.esp32.uptimeSec % 60).toString().padStart(2, '0');
+        dom.nodeUptimeVal.textContent = `${hrs}h ${mins}m ${secs}s`;
+
+        // Footer sync
+        dom.lastSyncTime.textContent = new Date().toTimeString().split(' ')[0];
+      }
+
+      /* ------------------------------------------------------------------------
+         SYNTHETIC TELEMETRY GENERATOR (STANDALONE / DEMO FALLBACK)
+         When the file is opened directly or ESP32 endpoint is not reachable,
+         this generator provides realistic medical IoT physics and fluctuations.
+         ------------------------------------------------------------------------ */
+      function generateSimulatedTelemetry() {
+        // Natural sinus fluctuation around 70-78 BPM
+        let newBpm = state.bpm;
+        if (!state.isEmergency) {
+          const delta = (Math.random() * 4 - 2);
+          newBpm = Math.round(Math.min(92, Math.max(62, newBpm + delta)));
+        } else {
+          // Elevated BPM during emergency
+          newBpm = Math.round(Math.min(132, Math.max(105, newBpm + (Math.random() * 4 - 1.5))));
+        }
+
+        // Slight oxygen & blood pressure micro-variance
+        const newSpo2 = state.isEmergency ? 95 : 98;
+        const newTemp = 36.8 + (Math.random() * 0.2 - 0.1);
+        const newSys = state.isEmergency ? 138 : (118 + Math.round(Math.random() * 4));
+        const newDia = state.isEmergency ? 88 : (76 + Math.round(Math.random() * 4));
+
+        return {
+          bpm: newBpm,
+          spo2: newSpo2,
+          temp: newTemp,
+          bp: `${newSys}/${newDia}`,
+          systolic: newSys,
+          diastolic: newDia,
+          safetyStatus: state.isEmergency ? 'EMERGENCY: FALL DETECTED!' : 'NORMAL - STABLE',
+          isEmergency: state.isEmergency,
+          systemState: state.isArmed ? 'ARMED' : 'STANDBY',
+          bedOccupied: !state.isEmergency,
+          gForce: state.isEmergency ? state.gForceSpike : (0.02 + Math.random() * 0.03),
+          accel: {
+            x: Number((Math.random() * 0.04 - 0.02).toFixed(2)),
+            y: Number((Math.random() * 0.04 - 0.02).toFixed(2)),
+            z: Number((0.97 + Math.random() * 0.04).toFixed(2))
+          },
+          esp32: {
+            connected: true,
+            isSimulated: true,
+            ip: '192.168.1.145',
+            rssi: -50 - Math.floor(Math.random() * 6),
+            uptimeSec: state.esp32.uptimeSec + 1,
+            latencyMs: 10 + Math.floor(Math.random() * 8)
+          }
+        };
+      }
+
+      /* ------------------------------------------------------------------------
+         FETCH LOOP: POLLS /data EVERY 1 SECOND
+         ------------------------------------------------------------------------ */
+      let pollCount = 0;
+
+      async function pollDataEndpoint() {
+        const startTime = performance.now();
+        pollCount++;
+
+        try {
+          // Use AbortController to enforce an 850ms timeout so interval never overlaps
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 850);
+
+          const response = await fetch(CONFIG.DATA_ENDPOINT, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store',
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const data = await response.json();
+          const latency = Math.round(performance.now() - startTime);
+
+          // Apply real data from ESP32
+          state.bpm = data.bpm ?? state.bpm;
+          state.spo2 = data.spo2 ?? state.spo2;
+          state.temp = data.temp ?? state.temp;
+          if (data.bp) {
+            const parts = data.bp.split('/');
+            state.systolic = parseInt(parts[0], 10) || state.systolic;
+            state.diastolic = parseInt(parts[1], 10) || state.diastolic;
+          }
+          if (data.systemState) {
+            state.isArmed = (data.systemState === 'ARMED');
+          }
+          if (typeof data.isEmergency === 'boolean') {
+            state.isEmergency = data.isEmergency && state.isArmed;
+          } else if (data.safetyStatus) {
+            state.isEmergency = data.safetyStatus.includes('EMERGENCY') && state.isArmed;
+          }
+
+          state.esp32.connected = true;
+          state.esp32.isSimulated = false;
+          state.esp32.latencyMs = latency;
+          if (data.esp32) {
+            state.esp32.ip = data.esp32.ip || state.esp32.ip;
+            state.esp32.rssi = data.esp32.rssi || state.esp32.rssi;
+            state.esp32.uptimeSec = data.esp32.uptimeSec || (state.esp32.uptimeSec + 1);
+          }
+
+          updateUI();
+          playHeartbeatChime();
+
+          if (pollCount % 10 === 0) {
+            addLog('ESP32-OK', `Live sync: ${state.bpm} BPM | IMU Norm | ${latency}ms`, 'ok');
+          }
+
+        } catch (error) {
+          // Fallback seamlessly to simulated mode if running standalone or offline
+          const latency = Math.round(performance.now() - startTime);
+          const simData = generateSimulatedTelemetry();
+
+          state.bpm = simData.bpm;
+          state.spo2 = simData.spo2;
+          state.temp = simData.temp;
+          state.systolic = simData.systolic;
+          state.diastolic = simData.diastolic;
+          state.bedOccupied = simData.bedOccupied;
+          state.gForceSpike = simData.gForce;
+          state.esp32.connected = true;
+          state.esp32.isSimulated = true;
+          state.esp32.latencyMs = latency;
+          state.esp32.uptimeSec++;
+          state.esp32.rssi = simData.esp32.rssi;
+
+          updateUI();
+          playHeartbeatChime();
+
+          if (pollCount === 1) {
+            addLog('POLL', `Endpoint /data inactive. Standalone Simulator activated.`, 'poll');
+          } else if (pollCount % 15 === 0) {
+            addLog('TELEMETRY', `Auto-polling /data (${state.bpm} BPM, Link active)`, 'poll');
+          }
+        }
+      }
+
+      /* ------------------------------------------------------------------------
+         EVENT HANDLERS & INTERACTIONS
+         ------------------------------------------------------------------------ */
+
+      // 1. System Mode Armed / Standby Toggle
+      dom.systemArmedToggle.addEventListener('change', async (e) => {
+        initAudio();
+        state.isArmed = e.target.checked;
+        
+        if (!state.isArmed && state.isEmergency) {
+          // Switching to standby clears active alerts
+          state.isEmergency = false;
+        }
+
+        const modeStr = state.isArmed ? 'ARMED' : 'STANDBY';
+        addLog('SYSTEM', `Room Monitoring switched to: ${modeStr}`, state.isArmed ? 'ok' : 'warn');
+        updateUI();
+
+        // Notify ESP32 node via POST/GET if online
+        try {
+          fetch(`${CONFIG.CONTROL_ENDPOINT}?state=${modeStr}`, { method: 'POST' }).catch(() => {});
+        } catch (_) {}
+      });
+
+      // 2. Simulate Emergency Fall Button
+      dom.btnSimulateFall.addEventListener('click', () => {
+        initAudio();
+        if (!state.isArmed) {
+          addLog('WARN', 'Cannot trigger fall alert: System is in STANDBY mode.', 'warn');
+          alert('System is currently in STANDBY mode. Toggle to ARMED first to detect falls.');
+          return;
+        }
+
+        state.isEmergency = true;
+        state.incidentCount++;
+        state.gForceSpike = 4.25;
+        state.bpm = 114;
+        addLog('CRITICAL', '🚨 EMERGENCY: FALL DETECTED! G-Force spike: 4.25G!', 'crit');
+        updateUI();
+      });
+
+      // 3. Clear Emergency Button
+      dom.btnClearEmergency.addEventListener('click', () => {
+        initAudio();
+        if (state.isEmergency) {
+          state.isEmergency = false;
+          state.gForceSpike = 0.04;
+          state.bpm = 74;
+          addLog('RESET', 'Emergency alarm acknowledged and reset by medical staff.', 'ok');
+        } else {
+          addLog('SYS', 'System status already normal. Self-test passed.', 'poll');
+        }
+        updateUI();
+      });
+
+      // 4. Audio Alert Mute / Unmute
+      dom.btnAudioMute.addEventListener('click', () => {
+        initAudio();
+        state.audioMuted = !state.audioMuted;
+
+        if (state.audioMuted) {
+          dom.btnAudioMute.classList.remove('active');
+          dom.audioIcon.textContent = '🔇';
+          dom.audioLabel.textContent = 'AUDIO MUTED';
+          addLog('AUDIO', 'Medical alert chime muted.', 'poll');
+        } else {
+          dom.btnAudioMute.classList.add('active');
+          dom.audioIcon.textContent = '🔊';
+          dom.audioLabel.textContent = 'AUDIO ACTIVE';
+          addLog('AUDIO', 'Medical alert chime active.', 'ok');
+          playHeartbeatChime();
+        }
+      });
+
+      /* ------------------------------------------------------------------------
+         INITIALIZATION
+         ------------------------------------------------------------------------ */
+      addLog('BOOT', 'D.B.M.S. ICU Medical Command Engine initialized.', 'ok');
+      addLog('NODE', 'Targeting ESP32 hardware endpoint /data @ 1000ms loop.', 'poll');
+      updateUI();
+
+      // Start real-time polling loop
+      setInterval(pollDataEndpoint, CONFIG.POLL_INTERVAL_MS);
+      pollDataEndpoint();
+
+    })();
+  </script>
+</body>
+</html>

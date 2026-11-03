@@ -1,0 +1,25 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyInstaller / Build outputs (Large binaries must not be committed to GitHub)
+build/
+dist/
+*.spec
+*.exe
+*.dll
+*.rar
+*.zip
+
+# Local environment & IDE
+.venv/
+venv/
+ENV/
+.vscode/
+.idea/
+*.log
+
+# Arduino compilation cache
+*.hex
+*.elf
