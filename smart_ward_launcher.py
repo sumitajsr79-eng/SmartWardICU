@@ -54,8 +54,8 @@ class SuiteLauncherApp(ctk.CTk):
         self.current_theme = self.state_data.get("ui_theme", "light")
 
         self.title("D.B.M.S. Smart Ward ICU - Master Suite Launcher")
-        self.geometry("980x760")
-        self.minsize(880, 680)
+        self.geometry("1120x780")
+        self.minsize(980, 700)
         self.configure(fg_color=COLOR_BG_MAIN)
 
         ctk.set_appearance_mode(self.current_theme)
@@ -223,6 +223,19 @@ class SuiteLauncherApp(ctk.CTk):
         )
         self.badge_motion.pack(side="left", padx=(0, 8))
 
+        # Caregiver & Doctor Fleet Status Pill
+        self.badge_fleet = ctk.CTkLabel(
+            row,
+            text="👥 Fleet: 0 Responders",
+            font=ctk.CTkFont(family="Consolas", size=10, weight="bold"),
+            text_color=COLOR_TEXT_MUTED,
+            fg_color=COLOR_STAT_BOX,
+            corner_radius=6,
+            padx=10,
+            pady=3
+        )
+        self.badge_fleet.pack(side="left", padx=(0, 8))
+
         # Home Base GPS
         self.badge_gps = ctk.CTkLabel(
             row,
@@ -278,8 +291,8 @@ class SuiteLauncherApp(ctk.CTk):
 
         ctk.CTkButton(
             top_btn_row,
-            text="🏡 1-Click Home Care Mode",
-            font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
+            text="🏡 Home Care Mode",
+            font=ctk.CTkFont(family="Inter", size=11, weight="bold"),
             fg_color="#059669",
             hover_color="#047857",
             text_color="#FFFFFF",
@@ -290,21 +303,34 @@ class SuiteLauncherApp(ctk.CTk):
 
         ctk.CTkButton(
             top_btn_row,
-            text="⚡ Dual Command Suite →",
-            font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
+            text="⚡ Dual Command Suite",
+            font=ctk.CTkFont(family="Inter", size=11, weight="bold"),
             fg_color=COLOR_CLAUDE_AMBER,
             hover_color=COLOR_CLAUDE_HOVER,
             text_color="#FFFFFF",
             height=36,
             corner_radius=8,
             command=self.launch_both_apps
+        ).pack(side="left", padx=(0, 6))
+
+        ctk.CTkButton(
+            top_btn_row,
+            text="🚀 Launch All 3 Apps →",
+            font=ctk.CTkFont(family="Inter", size=11, weight="bold"),
+            fg_color="#2563EB",
+            hover_color="#1D4ED8",
+            text_color="#FFFFFF",
+            height=36,
+            corner_radius=8,
+            command=self.launch_all_three_apps
         ).pack(side="left")
 
-        # 3.2 Individual App Cards (2-Column Grid)
+        # 3.2 Individual App Cards (3-Column Grid)
         grid_frame = ctk.CTkFrame(container, fg_color="transparent")
         grid_frame.pack(fill="both", expand=True)
         grid_frame.columnconfigure(0, weight=1)
         grid_frame.columnconfigure(1, weight=1)
+        grid_frame.columnconfigure(2, weight=1)
 
         # --- LEFT CARD: Smart Ward ICU Monitor ---
         card_monitor = ctk.CTkFrame(
@@ -314,7 +340,7 @@ class SuiteLauncherApp(ctk.CTk):
             border_width=1,
             border_color=COLOR_BORDER
         )
-        card_monitor.grid(row=0, column=0, sticky="nsew", padx=(0, 6), pady=0)
+        card_monitor.grid(row=0, column=0, sticky="nsew", padx=(0, 4), pady=0)
 
         m_inner = ctk.CTkFrame(card_monitor, fg_color="transparent")
         m_inner.pack(fill="both", expand=True, padx=16, pady=14)
@@ -411,7 +437,7 @@ class SuiteLauncherApp(ctk.CTk):
             command=lambda: self.launch_monitor(mode="hospital")
         ).pack(fill="x")
 
-        # --- RIGHT CARD: Emergency Location Dispatcher ---
+        # --- CENTER CARD: Emergency Location Dispatcher ---
         card_dispatch = ctk.CTkFrame(
             grid_frame,
             fg_color=COLOR_BG_CARD,
@@ -419,7 +445,7 @@ class SuiteLauncherApp(ctk.CTk):
             border_width=1,
             border_color=COLOR_BORDER
         )
-        card_dispatch.grid(row=0, column=1, sticky="nsew", padx=(6, 0), pady=0)
+        card_dispatch.grid(row=0, column=1, sticky="nsew", padx=(4, 4), pady=0)
 
         d_inner = ctk.CTkFrame(card_dispatch, fg_color="transparent")
         d_inner.pack(fill="both", expand=True, padx=16, pady=14)
@@ -478,7 +504,7 @@ class SuiteLauncherApp(ctk.CTk):
         # Action Button
         ctk.CTkButton(
             d_inner,
-            text="🚨 Launch Dispatch Command Center",
+            text="🚨 Launch Dispatch Command",
             font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
             fg_color="#DC2626",
             text_color="#FFFFFF",
@@ -486,6 +512,83 @@ class SuiteLauncherApp(ctk.CTk):
             height=36,
             corner_radius=7,
             command=self.launch_dispatcher
+        ).pack(fill="x", pady=(10, 0))
+
+        # --- RIGHT CARD: Caregiver & Doctor Calling App ---
+        card_responder = ctk.CTkFrame(
+            grid_frame,
+            fg_color=COLOR_BG_CARD,
+            corner_radius=12,
+            border_width=1,
+            border_color=COLOR_BORDER
+        )
+        card_responder.grid(row=0, column=2, sticky="nsew", padx=(4, 0), pady=0)
+
+        r_inner = ctk.CTkFrame(card_responder, fg_color="transparent")
+        r_inner.pack(fill="both", expand=True, padx=16, pady=14)
+
+        # Header
+        r_top = ctk.CTkFrame(r_inner, fg_color="transparent")
+        r_top.pack(fill="x", pady=(0, 6))
+
+        ctk.CTkLabel(
+            r_top,
+            text="📱",
+            font=ctk.CTkFont(size=22),
+            fg_color=COLOR_STAT_BOX,
+            corner_radius=8,
+            width=36,
+            height=36
+        ).pack(side="left", padx=(0, 8))
+
+        r_title_box = ctk.CTkFrame(r_top, fg_color="transparent")
+        r_title_box.pack(side="left")
+
+        ctk.CTkLabel(
+            r_title_box,
+            text="Caregiver Calling App",
+            font=ctk.CTkFont(family="Inter", size=14, weight="bold"),
+            text_color=COLOR_TEXT_MAIN
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            r_title_box,
+            text="Companion Softphone & Fleet Sync",
+            font=ctk.CTkFont(family="Consolas", size=10),
+            text_color=COLOR_TEXT_MUTED
+        ).pack(anchor="w")
+
+        # Feature bullet points
+        r_feats = ctk.CTkFrame(r_inner, fg_color=COLOR_STAT_BOX, corner_radius=8)
+        r_feats.pack(fill="both", expand=True, pady=(4, 10))
+
+        features_r = [
+            "• Zero-Config LAN & Wi-Fi Auto-Discovery (Port 8765)",
+            "• Instant Emergency Call Popup with Loud Ringtone",
+            "• SAPI5 Spoken Voice Distress Broadcast Audio",
+            "• Real-Time Bedside GPS Coordinates & Google Maps",
+            "• 2-Way Calling Console & Live 'En-Route' Sync"
+        ]
+        for f in features_r:
+            ctk.CTkLabel(
+                r_feats,
+                text=f,
+                font=ctk.CTkFont(family="Consolas", size=10),
+                text_color=COLOR_TEXT_MAIN,
+                justify="left"
+            ).pack(anchor="w", padx=10, pady=2)
+
+        # Action Button
+        ctk.CTkButton(
+            r_inner,
+            text="📱 Launch Caregiver / Doctor App",
+            font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
+            fg_color="#059669",
+            text_color="#FFFFFF",
+            hover_color="#047857",
+            height=36,
+            corner_radius=7,
+            command=self.launch_responder
         ).pack(fill="x", pady=(10, 0))
 
     # --------------------------------------------------------------------------
@@ -604,12 +707,25 @@ class SuiteLauncherApp(ctk.CTk):
     def launch_dispatcher(self):
         self._execute_app("emergency_location_dispatcher.py", "EmergencyLocationDispatcher.exe")
 
+    def launch_responder(self):
+        self._execute_app("smart_ward_responder_app.py", "SmartWardResponder.exe")
+
     def launch_both_apps(self):
-        """Launches both applications side-by-side"""
+        """Launches Bedside Monitor and Dispatch Center side-by-side"""
         threading.Thread(target=lambda: (
             self.launch_monitor(mode="hospital"),
             time.sleep(0.6),
             self.launch_dispatcher()
+        ), daemon=True).start()
+
+    def launch_all_three_apps(self):
+        """Launches Monitor, Dispatcher, and Caregiver App simultaneously"""
+        threading.Thread(target=lambda: (
+            self.launch_monitor(mode="hospital"),
+            time.sleep(0.6),
+            self.launch_dispatcher(),
+            time.sleep(0.6),
+            self.launch_responder()
         ), daemon=True).start()
 
     def open_google_maps(self):
@@ -682,7 +798,7 @@ class SuiteLauncherApp(ctk.CTk):
                 fg_color=COLOR_STAT_BOX
             )
 
-        # 2. Shared State Check
+        # 2. Shared State & Caregiver Fleet Check
         state = shared_state.load_state()
         if state.get("is_emergency", False):
             self.badge_vitals.configure(
@@ -690,6 +806,26 @@ class SuiteLauncherApp(ctk.CTk):
                 text_color="#DC2626",
                 fg_color=COLOR_ALERT_BG
             )
+
+        # Update Caregiver Fleet Badge
+        try:
+            active_responders = shared_state.get_active_responders(timeout_seconds=20)
+            if active_responders:
+                n = len(active_responders)
+                name0 = active_responders[0].get('name', 'Caregiver').split()[0]
+                self.badge_fleet.configure(
+                    text=f"👥 Fleet: {n} Online ({name0})",
+                    text_color=COLOR_NORMAL_TXT,
+                    fg_color=COLOR_NORMAL_BG
+                )
+            else:
+                self.badge_fleet.configure(
+                    text="👥 Fleet: 0 Responders",
+                    text_color=COLOR_TEXT_MUTED,
+                    fg_color=COLOR_STAT_BOX
+                )
+        except Exception:
+            pass
 
         self.after(1000, self.periodic_status_poll)
 

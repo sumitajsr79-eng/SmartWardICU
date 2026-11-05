@@ -50,7 +50,9 @@ DEFAULT_STATE = {
         "sats": 0,
         "pulse_raw": 0,
         "last_sync": ""
-    }
+    },
+    "responders": {},
+    "last_responder_event": ""
 }
 
 def get_state_path():
@@ -145,3 +147,55 @@ def update_hardware_telemetry(hw_dict):
     state["hardware"]["last_sync"] = time.strftime("%Y-%m-%d %H:%M:%S")
     save_state(state)
     return state
+
+def register_or_update_responder(data):
+    """Registers or updates a caregiver/doctor responder device"""
+    state = load_state()
+    if "responders" not in state:
+        state["responders"] = {}
+    
+    dev_id = data.get("device_id")
+    if not dev_id:
+        return state
+        
+    now = time.time()
+    existing = state["responders"].get(dev_id, {})
+    existing.update(data)
+    existing["last_seen"] = now
+    existing["last_seen_str"] = time.strftime("%Y-%m-%d %H:%M:%S")
+    existing["online"] = True
+    state["responders"][dev_id] = existing
+    state["last_responder_event"] = f"Responder {existing.get('name', dev_id)} online at {existing.get('ip', 'local')}"
+    save_state(state)
+    return state
+
+def get_active_responders(timeout_seconds=20):
+    """Returns all registered responders seen within the timeout window"""
+    state = load_state()
+    responders = state.get("responders", {})
+    now = time.time()
+    active = []
+    
+    for dev_id, r in list(responders.items()):
+        elapsed = now - r.get("last_seen", 0)
+        is_online = elapsed <= timeout_seconds
+        r["online"] = is_online
+        r["elapsed_seconds"] = int(elapsed)
+        if is_online:
+            active.append(r)
+            
+    return active
+
+def record_responder_acknowledgement(device_id, ack_payload):
+    """Records when a responder accepts or acknowledges an emergency distress call"""
+    state = load_state()
+    if "responders" in state and device_id in state["responders"]:
+        state["responders"][device_id]["last_ack"] = {
+            "payload": ack_payload,
+            "timestamp": time.time(),
+            "time_str": time.strftime("%Y-%m-%d %H:%M:%S")
+        }
+    state["last_responder_event"] = f"SOS Accepted by {device_id}!"
+    save_state(state)
+    return state
+

@@ -82,6 +82,19 @@ if __name__ == "__main__":
         ]
     )
     
+    # 4. Build SmartWardResponder with icon
+    build_app(
+        script_name="smart_ward_responder_app.py",
+        exe_name="SmartWardResponder",
+        icon_path=dispatcher_ico,
+        extra_args=[
+            "--hidden-import", "pyttsx3.drivers",
+            "--hidden-import", "pyttsx3.drivers.sapi5",
+            "--collect-all", "pyttsx3",
+            "--collect-all", "requests"
+        ]
+    )
+    
     # Copy to workspace root & user Desktop
     desktop_dir = os.path.expanduser(r"~\Desktop")
     destinations = [r"D:\Sandbox", desktop_dir]
@@ -89,9 +102,10 @@ if __name__ == "__main__":
     for d in destinations:
         if os.path.exists(d):
             try:
-                shutil.copy2(os.path.join(DIST_DIR, "SmartWardMonitor.exe"), os.path.join(d, "SmartWardMonitor.exe"))
-                shutil.copy2(os.path.join(DIST_DIR, "EmergencyLocationDispatcher.exe"), os.path.join(d, "EmergencyLocationDispatcher.exe"))
-                shutil.copy2(os.path.join(DIST_DIR, "SmartWardLauncher.exe"), os.path.join(d, "SmartWardLauncher.exe"))
+                for app_name in ["SmartWardMonitor.exe", "EmergencyLocationDispatcher.exe", "SmartWardLauncher.exe", "SmartWardResponder.exe"]:
+                    src = os.path.join(DIST_DIR, app_name)
+                    if os.path.exists(src):
+                        shutil.copy2(src, os.path.join(d, app_name))
                 print(f"Copied executables to: {d}")
             except Exception as e:
                 print(f"Notice copying to {d}: {e}")

@@ -8,10 +8,11 @@ echo.
 echo  [1] Launch Unified Suite Launcher (Recommended)
 echo  [2] Launch Smart Ward Monitor (Live Dashboard)
 echo  [3] Launch Emergency Location & Automated Dispatcher
-echo  [4] Launch BOTH Monitor + Dispatcher Simultaneously
-echo  [5] Exit
+echo  [4] Launch Caregiver & Doctor Calling App (Responder Softphone)
+echo  [5] Launch ALL 3 Apps Simultaneously (ICU + Dispatcher + Caregiver)
+echo  [6] Exit
 echo.
-set /p choice="Select an option (1-5): "
+set /p choice="Select an option (1-6): "
 
 if "%choice%"=="1" (
     if exist "%~dp0SmartWardLauncher.exe" (
@@ -38,6 +39,14 @@ if "%choice%"=="3" (
     exit
 )
 if "%choice%"=="4" (
+    if exist "%~dp0SmartWardResponder.exe" (
+        start "" "%~dp0SmartWardResponder.exe"
+    ) else (
+        start "" python "%~dp0smart_ward_responder_app.py"
+    )
+    exit
+)
+if "%choice%"=="5" (
     if exist "%~dp0SmartWardMonitor.exe" (
         start "" "%~dp0SmartWardMonitor.exe"
     ) else (
@@ -47,6 +56,11 @@ if "%choice%"=="4" (
         start "" "%~dp0EmergencyLocationDispatcher.exe"
     ) else (
         start "" python "%~dp0emergency_location_dispatcher.py"
+    )
+    if exist "%~dp0SmartWardResponder.exe" (
+        start "" "%~dp0SmartWardResponder.exe"
+    ) else (
+        start "" python "%~dp0smart_ward_responder_app.py"
     )
     exit
 )

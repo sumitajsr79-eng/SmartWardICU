@@ -19,6 +19,7 @@ import calling_console
 import auth_system
 import login_view
 import hardware_bridge
+import responder_registry
 
 try:
     import winsound
@@ -107,6 +108,12 @@ class SmartWardMonitorApp(ctk.CTk):
         self.hw_bridge = hardware_bridge.HardwareBridge.get_instance()
         self.hw_bridge.start()
 
+        # Initialize Central Fleet Calling & Auto-Discovery Server (Port 8888 / Beacon 8765)
+        self.registry_server = responder_registry.ResponderRegistryServer.get_instance()
+        self.registry_server.on_responder_event = self.on_responder_fleet_event
+        self.registry_server.on_incoming_ward_call = self.on_incoming_ward_call
+        self.registry_server.start()
+
         # Handle window closing
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -165,6 +172,11 @@ class SmartWardMonitorApp(ctk.CTk):
             pass
         try:
             self.hw_bridge.stop()
+        except Exception:
+            pass
+        try:
+            if hasattr(self, 'registry_server'):
+                self.registry_server.stop()
         except Exception:
             pass
         self.destroy()
@@ -511,6 +523,17 @@ class SmartWardMonitorApp(ctk.CTk):
         self.drawer_container = ctk.CTkFrame(parent, fg_color="transparent")
         self.drawer_container.pack(fill="x", padx=16, pady=(0, 6))
 
+        # 1. Responder Fleet Drawer (Initially collapsed)
+        self.responder_drawer = ctk.CTkFrame(
+            self.drawer_container,
+            fg_color=COLOR_STAT_BOX,
+            corner_radius=10,
+            border_width=1,
+            border_color=COLOR_BORDER
+        )
+        self.create_responder_drawer_content(self.responder_drawer)
+
+        # 2. Simulation Tests Drawer (Initially collapsed)
         self.diagnostic_drawer = ctk.CTkFrame(
             self.drawer_container,
             fg_color=COLOR_STAT_BOX,
@@ -649,6 +672,266 @@ class SmartWardMonitorApp(ctk.CTk):
             self.diagnostic_drawer.pack(fill="x")
             if hasattr(self, 'btn_toggle_diagnostics'):
                 self.btn_toggle_diagnostics.configure(text="🛠️ Close Test Panel ▴")
+
+    def toggle_responder_drawer(self):
+        if self.responder_drawer.winfo_viewable():
+            self.responder_drawer.pack_forget()
+            if hasattr(self, 'btn_toggle_responders'):
+                active = shared_state.get_active_responders()
+                cnt = len(active)
+                txt = f"👥 Caregivers ({cnt} Online) ▾" if cnt > 0 else "👥 Fleet (0) ▾"
+                self.btn_toggle_responders.configure(text=txt)
+        else:
+            # If diagnostic drawer is open, hide it
+            if self.diagnostic_drawer.winfo_viewable():
+                self.diagnostic_drawer.pack_forget()
+                if hasattr(self, 'btn_toggle_diagnostics'):
+                    self.btn_toggle_diagnostics.configure(text="🛠️ Test Panel ▾")
+            self.responder_drawer.pack(fill="x", pady=(0, 4))
+            self.refresh_responder_fleet_ui()
+            if hasattr(self, 'btn_toggle_responders'):
+                self.btn_toggle_responders.configure(text="👥 Close Fleet Panel ▴")
+
+    def create_responder_drawer_content(self, parent):
+        inner = ctk.CTkFrame(parent, fg_color="transparent")
+        inner.pack(fill="x", padx=12, pady=10)
+
+        # Top Header line
+        top = ctk.CTkFrame(inner, fg_color="transparent")
+        top.pack(fill="x", pady=(0, 6))
+
+        title_box = ctk.CTkFrame(top, fg_color="transparent")
+        title_box.pack(side="left")
+
+        ctk.CTkLabel(
+            title_box,
+            text="👥 REGISTERED CAREGIVERS & EMERGENCY FLEET (AUTO-SYNC VIA LAN / WI-FI)",
+            font=ctk.CTkFont(family="Consolas", size=11, weight="bold"),
+            text_color=COLOR_TEXT_MAIN
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            title_box,
+            text="When anyone runs the Calling App on their phone or laptop, they appear here live. Click 'Call' to ring them immediately.",
+            font=ctk.CTkFont(family="Inter", size=10),
+            text_color=COLOR_TEXT_MUTED
+        ).pack(anchor="w")
+
+        # Action buttons on right
+        btn_box = ctk.CTkFrame(top, fg_color="transparent")
+        btn_box.pack(side="right")
+
+        self.btn_call_all_fleet = ctk.CTkButton(
+            btn_box,
+            text="🚨 Call All Responders Now",
+            font=ctk.CTkFont(family="Inter", size=10, weight="bold"),
+            fg_color="#DC2626",
+            hover_color="#B91C1C",
+            text_color="#FFFFFF",
+            height=28,
+            corner_radius=6,
+            command=self.call_all_responders_now
+        )
+        self.btn_call_all_fleet.pack(side="left", padx=(0, 6))
+
+        self.btn_launch_local_app = ctk.CTkButton(
+            btn_box,
+            text="📱 Launch Companion App",
+            font=ctk.CTkFont(family="Inter", size=10, weight="bold"),
+            fg_color=COLOR_CLAUDE_AMBER,
+            hover_color=COLOR_CLAUDE_HOVER,
+            text_color="#FFFFFF",
+            height=28,
+            corner_radius=6,
+            command=self.launch_companion_app_process
+        )
+        self.btn_launch_local_app.pack(side="left")
+
+        # Container for responder cards
+        self.fleet_cards_container = ctk.CTkFrame(inner, fg_color="transparent")
+        self.fleet_cards_container.pack(fill="x", pady=(4, 0))
+        self.refresh_responder_fleet_ui()
+
+    def refresh_responder_fleet_ui(self):
+        """Rebuilds the list of active responder cards in the drawer"""
+        if not hasattr(self, 'fleet_cards_container'):
+            return
+
+        for w in self.fleet_cards_container.winfo_children():
+            w.destroy()
+
+        active = shared_state.get_active_responders(timeout_seconds=20)
+
+        if not active:
+            empty_card = ctk.CTkFrame(self.fleet_cards_container, fg_color=COLOR_BG_CARD, corner_radius=8, border_width=1, border_color=COLOR_BORDER)
+            empty_card.pack(fill="x", pady=2)
+            row = ctk.CTkFrame(empty_card, fg_color="transparent")
+            row.pack(fill="x", padx=12, pady=10)
+            ctk.CTkLabel(
+                row, 
+                text="⚪ No remote caregivers currently connected. Run 'smart_ward_responder_app.py' on any phone or laptop on this Wi-Fi network.",
+                font=ctk.CTkFont(family="Inter", size=11), text_color=COLOR_TEXT_DIM
+            ).pack(side="left")
+            ctk.CTkButton(
+                row,
+                text="📱 Launch Test App Locally",
+                font=ctk.CTkFont(family="Inter", size=10, weight="bold"),
+                fg_color=COLOR_STAT_BOX, text_color=COLOR_TEXT_MAIN, hover_color=COLOR_BORDER,
+                height=26, width=150, corner_radius=6,
+                command=self.launch_companion_app_process
+            ).pack(side="right")
+            return
+
+        # Render each connected responder
+        for r in active:
+            card = ctk.CTkFrame(self.fleet_cards_container, fg_color=COLOR_BG_CARD, corner_radius=8, border_width=1, border_color=COLOR_BORDER)
+            card.pack(fill="x", pady=2)
+
+            row = ctk.CTkFrame(card, fg_color="transparent")
+            row.pack(fill="x", padx=12, pady=8)
+
+            role = r.get("role", "Caregiver")
+            avatar = "👨‍⚕️" if "Doctor" in role else ("👩‍⚕️" if "Nurse" in role else ("🚑" if "EMT" in role else "📱"))
+            
+            ctk.CTkLabel(row, text=avatar, font=ctk.CTkFont(size=18)).pack(side="left", padx=(0, 8))
+
+            name_box = ctk.CTkFrame(row, fg_color="transparent")
+            name_box.pack(side="left", fill="both", expand=True)
+
+            title_txt = f"{r.get('name', 'Responder')}  ({role})"
+            ctk.CTkLabel(
+                name_box, text=title_txt, 
+                font=ctk.CTkFont(family="Inter", size=11, weight="bold"), text_color=COLOR_TEXT_MAIN
+            ).pack(anchor="w")
+
+            detail_txt = f"📞 {r.get('phone', 'N/A')}  |  🌐 {r.get('ip', 'local')}:{r.get('call_port', 8770)}  |  🟢 Online ({r.get('elapsed_seconds', 0)}s ago)"
+            ctk.CTkLabel(
+                name_box, text=detail_txt, 
+                font=ctk.CTkFont(family="Consolas", size=9), text_color=COLOR_TEXT_MUTED
+            ).pack(anchor="w")
+
+            # Direct Call Button for this responder
+            btn_call = ctk.CTkButton(
+                row,
+                text="📞 Call",
+                font=ctk.CTkFont(family="Inter", size=11, weight="bold"),
+                fg_color=COLOR_NORMAL_TXT,
+                hover_color="#047857",
+                height=28,
+                width=75,
+                corner_radius=6,
+                command=lambda resp=r: self.call_specific_responder(resp)
+            )
+            btn_call.pack(side="right")
+
+    def call_specific_responder(self, responder: dict):
+        """Directly calls a specific caregiver's companion app"""
+        role = self.auth_session.get("role", "home") if self.auth_session else "home"
+        p_name = self.auth_session.get("user_name", "Eleanor Vance (Home Care)") if self.auth_session else "Eleanor Vance (Home Care)"
+        ward_info = self.auth_session.get("ward", "Living Room / Bedroom Suite") if self.auth_session else "Living Room / Bedroom Suite"
+        state = shared_state.load_state()
+        loc = state.get("location", {})
+
+        payload = {
+            "type": "DIRECT_CAREGIVER_CALL",
+            "patient_name": p_name,
+            "ward": ward_info,
+            "room_bed": "Home Suite" if role == "home" else "Room 402 // Bed 03",
+            "bpm": self.bpm,
+            "city": loc.get("city", "Jamshedpur"),
+            "lat": loc.get("lat", 22.8028),
+            "lon": loc.get("lon", 86.1855),
+            "maps_url": loc.get("maps_url", "https://maps.google.com"),
+            "phone": responder.get("phone", "+91 98765 43210")
+        }
+
+        # Send direct call over network
+        if hasattr(self, 'registry_server'):
+            self.registry_server.call_single_responder(responder, payload)
+
+        # Open softphone console
+        calling_console.LiveCallingConsole(
+            self,
+            recipient_name=f"{responder.get('name')} ({responder.get('role')})",
+            phone_number=responder.get("phone", "+91 98765 43210"),
+            alert_payload=payload
+        )
+
+    def call_all_responders_now(self):
+        """Emergency broadcast to all registered caregivers"""
+        role = self.auth_session.get("role", "home") if self.auth_session else "home"
+        p_name = self.auth_session.get("user_name", "Eleanor Vance (Home Care)") if self.auth_session else "Eleanor Vance (Home Care)"
+        ward_info = self.auth_session.get("ward", "Living Room / Bedroom Suite") if self.auth_session else "Living Room / Bedroom Suite"
+        phone = self.phone_entry.get().strip() or "+1 (555) 911-0420"
+        state = shared_state.load_state()
+        loc = state.get("location", {})
+
+        payload = {
+            "type": "EMERGENCY_BROADCAST_ALL",
+            "patient_name": p_name,
+            "ward": ward_info,
+            "room_bed": "Home Suite" if role == "home" else "Room 402 // Bed 03",
+            "bpm": self.bpm,
+            "condition": "CRITICAL EMERGENCY BROADCAST TO ALL RESPONDERS",
+            "city": loc.get("city", "Jamshedpur"),
+            "lat": loc.get("lat", 22.8028),
+            "lon": loc.get("lon", 86.1855),
+            "maps_url": loc.get("maps_url", "https://maps.google.com"),
+            "phone": phone
+        }
+
+        if hasattr(self, 'registry_server'):
+            n = self.registry_server.broadcast_call_to_all_responders(payload)
+            messagebox.showinfo("Emergency Broadcast", f"Emergency call dispatched to {n} registered responder(s)!")
+
+    def launch_companion_app_process(self):
+        """Launches the Calling Companion App for testing or pairing"""
+        app_script = os.path.join(SCRIPT_DIR, "smart_ward_responder_app.py")
+        app_exe = os.path.join(SCRIPT_DIR, "dist", "SmartWardResponder.exe")
+        target = app_exe if os.path.exists(app_exe) else sys.executable
+        args = [target] if os.path.exists(app_exe) else [sys.executable, app_script]
+        try:
+            import subprocess
+            subprocess.Popen(args)
+        except Exception as e:
+            messagebox.showerror("Launch Error", f"Could not launch companion app: {e}")
+
+    def on_responder_fleet_event(self, event_type, data):
+        """Called when a companion app connects or acknowledges an SOS"""
+        if event_type == "JOINED":
+            if HAS_SOUND:
+                try:
+                    winsound.Beep(1046, 70)
+                except Exception:
+                    pass
+        elif event_type == "ACKNOWLEDGED":
+            if HAS_SOUND:
+                try:
+                    winsound.Beep(1318, 120)
+                except Exception:
+                    pass
+            resp_name = data.get("responder_name", "Caregiver")
+            self.after(0, lambda: self.status_badge.configure(
+                text=f"✅ SOS ACCEPTED: {resp_name} EN-ROUTE",
+                text_color=COLOR_NORMAL_TXT,
+                fg_color=COLOR_NORMAL_BG
+            ))
+
+    def on_incoming_ward_call(self, data):
+        """Called when a caregiver calls the ward from the companion app"""
+        caller_name = data.get("caller_name", "Remote Caregiver")
+        phone = data.get("caller_phone", "+91 98765 43210")
+        if HAS_SOUND:
+            try:
+                winsound.Beep(880, 200)
+            except Exception:
+                pass
+        self.after(0, lambda: calling_console.LiveCallingConsole(
+            self,
+            recipient_name=f"{caller_name} (Companion App)",
+            phone_number=phone,
+            alert_payload={"patient_name": "Ward Admin Hotline", "bpm": self.bpm}
+        ))
 
     def create_presence_diagnostic_bar(self, parent):
         pass # Consolidated into diagnostic drawer
@@ -1125,6 +1408,22 @@ class SmartWardMonitorApp(ctk.CTk):
             command=self.open_hospital_dispatcher_app
         )
 
+        # Toggle Responders Fleet Drawer Button
+        self.btn_toggle_responders = ctk.CTkButton(
+            right,
+            text="👥 Fleet (0) ▾",
+            font=ctk.CTkFont(family="Inter", size=10, weight="bold"),
+            fg_color=COLOR_STAT_BOX,
+            text_color=COLOR_TEXT_MAIN,
+            hover_color=COLOR_BORDER,
+            border_width=1,
+            border_color=COLOR_BORDER,
+            height=34,
+            corner_radius=7,
+            command=self.toggle_responder_drawer
+        )
+        self.btn_toggle_responders.pack(side="left", padx=(0, 6))
+
         # Toggle Diagnostics Drawer Button
         self.btn_toggle_diagnostics = ctk.CTkButton(
             right,
@@ -1566,6 +1865,31 @@ class SmartWardMonitorApp(ctk.CTk):
         except Exception:
             pass
 
+        # Check active caregiver responder fleet
+        try:
+            active_responders = shared_state.get_active_responders(timeout_seconds=20)
+            n_resp = len(active_responders)
+            if hasattr(self, 'btn_toggle_responders'):
+                if not self.responder_drawer.winfo_viewable():
+                    if n_resp > 0:
+                        first_name = active_responders[0].get('name', 'Caregiver').split()[0]
+                        self.btn_toggle_responders.configure(
+                            text=f"👥 {n_resp} Online ({first_name}) ▾",
+                            fg_color=COLOR_NORMAL_BG,
+                            text_color=COLOR_NORMAL_TXT
+                        )
+                    else:
+                        self.btn_toggle_responders.configure(
+                            text="👥 Fleet (0) ▾",
+                            fg_color=COLOR_STAT_BOX,
+                            text_color=COLOR_TEXT_MUTED
+                        )
+            # If drawer is open, keep list fresh
+            if hasattr(self, 'responder_drawer') and self.responder_drawer.winfo_viewable():
+                self.refresh_responder_fleet_ui()
+        except Exception:
+            pass
+
         self.after(1000, self.periodic_telemetry_loop)
 
     def trigger_heart_auto_call(self):
@@ -1602,6 +1926,8 @@ class SmartWardMonitorApp(ctk.CTk):
 
         # 1. Broadcast to all other apps on network (P2P App-to-App Calling)
         dispatch_engine.NetworkCallBroadcaster.broadcast_emergency_call(payload)
+        if hasattr(self, 'registry_server'):
+            self.registry_server.broadcast_call_to_all_responders(payload)
 
         # 2. Fire multi-tier calling engine (Twilio, GSM, tel:, SAPI5)
         self.coordinator.calling_sys.make_call(phone, payload)
@@ -1681,6 +2007,8 @@ class SmartWardMonitorApp(ctk.CTk):
 
         # Broadcast to all apps
         dispatch_engine.NetworkCallBroadcaster.broadcast_emergency_call(payload)
+        if hasattr(self, 'registry_server'):
+            self.registry_server.broadcast_call_to_all_responders(payload)
 
         # Trigger calling engine
         threading.Thread(target=lambda: self.coordinator.calling_sys.make_call(phone, payload), daemon=True).start()
